@@ -10,33 +10,37 @@ st.set_page_config(page_title="Nano-Swarm EOR Pro", layout="wide")
 # --- 2. محرك تحميل البيانات (Excel Engine) ---
 @st.cache_data
 def load_and_interpolate():
+    # تحميل الملفات
+    # ملاحظة: إذا كانت الملفات الأخرى (PVTO, Data) تحتوي أيضاً على أسطر زائدة، 
+    # أضف إليها header=6 كما فعلنا مع Pro.xlsx
     pvto = pd.read_excel("PVTO.xlsx")
     rel_perm = pd.read_excel("Data.xlsx")
-    por_data = pd.read_excel("Pro.xlsx")
+    # تحميل Pro.xlsx مع تجاوز أول 6 أسطر
+    por_data = pd.read_excel("Pro.xlsx", header=6)
     
-    # تنظيف أسماء الأعمدة (أهم خطوة 🔥)
+    # تنظيف أسماء الأعمدة (تعديل جوهري لتجنب KeyError)
     pvto.columns = pvto.columns.str.strip().str.lower()
     rel_perm.columns = rel_perm.columns.str.strip().str.lower()
     por_data.columns = por_data.columns.str.strip().str.lower()
 
-    # التحقق من الأعمدة
+    # التحقق من وجود الأعمدة
     required_pvto = ['pressure', 'oil viscosity']
     required_rel = ['sw', 'kro']
     required_por = ['x', 'y', 'porosity']
 
     for col in required_pvto:
         if col not in pvto.columns:
-            st.error(f"❌ عمود ناقص في PVTO.xlsx: {col}")
+            st.error(f"❌ عمود ناقص في PVTO.xlsx: {col}. الأعمدة الموجودة: {pvto.columns.tolist()}")
             st.stop()
 
     for col in required_rel:
         if col not in rel_perm.columns:
-            st.error(f"❌ عمود ناقص في Data.xlsx: {col}")
+            st.error(f"❌ عمود ناقص في Data.xlsx: {col}. الأعمدة الموجودة: {rel_perm.columns.tolist()}")
             st.stop()
 
     for col in required_por:
         if col not in por_data.columns:
-            st.error(f"❌ عمود ناقص في Pro.xlsx: {col}")
+            st.error(f"❌ عمود ناقص في Pro.xlsx: {col}. الأعمدة الموجودة: {por_data.columns.tolist()}")
             st.stop()
 
     # إنشاء دوال interpolation
@@ -56,6 +60,7 @@ def load_and_interpolate():
     
     return visc_func, kro_func, por_data
 
+# استدعاء الدالة
 visc_func, kro_func, por_data = load_and_interpolate()
 
 # --- 3. كلاس المكمن ---
@@ -68,13 +73,13 @@ class Reservoir:
                 columns='x'
             )
         except Exception as e:
-            st.error(f"❌ خطأ في قراءة بيانات Porosity: {e}")
+            st.error(f"❌ خطأ في بناء شبكة المكمن (Grid): {e}")
             st.stop()
 
         grid_data = grid_data.fillna(0)
 
         if grid_data.empty:
-            st.error("❌ بيانات المكمن فاضية")
+            st.error("❌ بيانات المكمن فارغة")
             st.stop()
 
         self.grid = grid_data.values
@@ -169,3 +174,4 @@ st.plotly_chart(
     ),
     use_container_width=True
 )
+
