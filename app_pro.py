@@ -1,4 +1,4 @@
-(import streamlit as st
+import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
@@ -168,4 +168,4 @@ st.plotly_chart(
         title="خريطة المكمن - توزيع النفط والمسامية"
     ),
     use_container_width=True
-))
+)
