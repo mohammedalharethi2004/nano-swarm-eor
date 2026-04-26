@@ -4,27 +4,29 @@ import numpy as np
 import plotly.express as px
 from scipy.interpolate import interp1d
 
-# --- 1. إعدادات الصفحة ---
 st.set_page_config(page_title="Nano-Swarm EOR Pro", layout="wide")
 
-# --- 2. محرك تحميل البيانات ---
-@st.cache_data
-def load_and_interpolate():
-    # تحميل البيانات
-    pvto = pd.read_csv("PVTO.xlsx - Sheet1.csv")
-    rel_perm = pd.read_csv("Data.xlsx - Water-Oil Relative Permeability.csv")
-    
-    # تنظيف
-    pvto.columns = pvto.columns.str.strip().str.lower()
-    rel_perm.columns = rel_perm.columns.str.strip().str.lower()
-    
-    # إنشاء الدوال
-    visc_f = interp1d(pvto['pressure'], pvto['oil viscosity'], kind='linear', fill_value="extrapolate")
-    kro_f = interp1d(rel_perm['sw'], rel_perm['kro'], kind='linear', fill_value="extrapolate")
-    
-    return visc_f, kro_f
+st.title("🛢️ Nano-Swarm EOR Industrial Prototype")
 
-# --- 3. تعريف الكلاس (يستقبل الدوال كمدخلات لضمان عدم ضياعها) ---
+# --- 1. رفع الملفات يدوياً (الحل المضمون) ---
+st.sidebar.header("📥 ارفع ملفات البيانات")
+pvto_file = st.sidebar.file_uploader("ارفع ملف PVTO.xlsx - Sheet1.csv", type=['csv'])
+wo_rel_file = st.sidebar.file_uploader("ارفع ملف Water-Oil Permeability", type=['csv'])
+por_file = st.sidebar.file_uploader("ارفع ملف Pro.xlsx - Por.csv", type=['csv'])
+
+# --- 2. محرك تحميل البيانات الذكي ---
+@st.cache_data
+def process_data(pvto_f, wo_f):
+    pvto = pd.read_csv(pvto_f)
+    wo_rel = pd.read_csv(wo_f)
+    pvto.columns = pvto.columns.str.strip().str.lower()
+    wo_rel.columns = wo_rel.columns.str.strip().str.lower()
+    
+    visc_func = interp1d(pvto['pressure'], pvto['oil viscosity'], kind='linear', fill_value="extrapolate")
+    kro_func = interp1d(wo_rel['sw'], wo_rel['kro'], kind='linear', fill_value="extrapolate")
+    return visc_func, kro_func
+
+# --- 3. الكلاسات ---
 class Reservoir:
     def __init__(self, visc_func, kro_func):
         self.visc_func = visc_func
@@ -32,73 +34,27 @@ class Reservoir:
         self.grid = np.random.uniform(0.15, 0.35, (20, 20)) 
         
     def get_darcy_production(self, pressure, sw):
-        try:
-            mu = max(float(self.visc_func(pressure)), 1e-6)
-            kr = float(self.kro_func(sw))
-            k = np.mean(self.grid)
-            dp = pressure / 1000
-            q = (k * kr * 1 * dp) / mu
-            return float(q)
-        except: return 0
+        mu = max(float(self.visc_func(pressure)), 1e-6)
+        kr = float(self.kro_func(sw))
+        return (np.mean(self.grid) * kr * pressure) / mu
 
-class SwarmAgent:
-    def __init__(self, size_x, size_y):
-        self.x = np.random.randint(0, size_x)
-        self.y = np.random.randint(0, size_y)
-
-    def move(self, oil_grid, pheromone_grid):
-        score_grid = oil_grid + (pheromone_grid * 0.5)
-        padded = np.pad(score_grid, pad_width=1, mode='constant', constant_values=0)
-        px, py = self.x + 1, self.y + 1
-        local = padded[px-1:px+2, py-1:py+2]
-        idx = np.argmax(local)
-        self.x = np.clip(self.x + (idx // 3) - 1, 0, oil_grid.shape[0]-1)
-        self.y = np.clip(self.y + (idx % 3) - 1, 0, oil_grid.shape[1]-1)
-
-# --- 4. التنفيذ والترتيب الصحيح للبيانات ---
-# التحميل قبل أي شيء
-visc_func, kro_func = load_and_interpolate()
-
-# تهيئة الـ State في حال كانت فارغة
-if 'res' not in st.session_state:
-    st.session_state.res = Reservoir(visc_func, kro_func)
-    st.session_state.swarm = [SwarmAgent(20, 20) for _ in range(20)]
-    st.session_state.ph_grid = np.zeros((20, 20))
-
-# --- 5. الواجهة الرئيسية ---
-st.title("🛢️ Nano-Swarm EOR Industrial Prototype")
-
-with st.sidebar:
-    st.header("إعدادات التحكم")
-    pressure = st.slider("ضغط المكمن (PSI)", 500, 3000, 1500)
-    sw = st.slider("تشبع الماء (Sw)", 0.25, 0.8, 0.4)
-    if st.button("إعادة تعيين المحاكاة"):
+# --- 4. منطق التشغيل ---
+if pvto_file and wo_rel_file:
+    visc_func, kro_func = process_data(pvto_file, wo_rel_file)
+    
+    if 'res' not in st.session_state:
         st.session_state.res = Reservoir(visc_func, kro_func)
-        st.session_state.swarm = [SwarmAgent(20, 20) for _ in range(20)]
-        st.session_state.ph_grid = np.zeros((20, 20))
-        st.rerun()
-
-# --- 6. المحاكاة ---
-# حساب الإنتاج
-without_swarm = st.session_state.res.get_darcy_production(pressure, sw)
-mu = max(float(visc_func(pressure)), 1e-6)
-
-# حركة السرب
-for bot in st.session_state.swarm:
-    bot.move(st.session_state.res.grid, st.session_state.ph_grid)
-    effect = 0.01 * (1 / mu)
-    x, y = bot.x, bot.y
-    st.session_state.res.grid[x, y] = max(st.session_state.res.grid[x, y] - effect, 0)
-    st.session_state.ph_grid[x, y] += 0.1
-
-st.session_state.ph_grid *= 0.95
-with_swarm = st.session_state.res.get_darcy_production(pressure, sw)
-
-# --- 7. النتائج (الواجهة التي طلبت الحفاظ عليها) ---
-col1, col2, col3 = st.columns(3)
-col1.metric("الإنتاج الأساسي", f"{without_swarm:.4f}")
-col2.metric("الإنتاج المحسن", f"{with_swarm:.4f}")
-improvement = ((with_swarm - without_swarm) / without_swarm * 100) if without_swarm != 0 else 0
-col3.metric("نسبة التحسن (KPI)", f"{improvement:.2f}%")
-
-st.plotly_chart(px.imshow(st.session_state.res.grid, title="خريطة المكمن (Simulation Grid)"), use_container_width=True)
+    
+    # تحكم الواجهة
+    pressure = st.sidebar.slider("ضغط المكمن (PSI)", 500, 3000, 1500)
+    sw = st.sidebar.slider("تشبع الماء (Sw)", 0.25, 0.8, 0.4)
+    
+    prod = st.session_state.res.get_darcy_production(pressure, sw)
+    st.metric("الإنتاج المحسوب", f"{prod:.4f}")
+    
+    if por_file:
+        prod_data = pd.read_csv(por_file)
+        st.write("بيانات الإنتاج:", prod_data.head())
+        st.line_chart(prod_data.head(50))
+else:
+    st.info("⚠️ يرجى رفع الملفات من القائمة الجانبية لبدء المحاكاة.")
