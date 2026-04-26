@@ -108,7 +108,7 @@ class SwarmAgent:
         self.x = np.clip(self.x + (idx // 3) - 1, 0, oil_grid.shape[0]-1)
         self.y = np.clip(self.y + (idx % 3) - 1, 0, oil_grid.shape[1]-1)
 
-# --- 5. الواجهة ---
+# --- 5. الواجهة --
 st.title("🛢️ Nano-Swarm EOR Industrial Prototype")
 
 with st.sidebar:
