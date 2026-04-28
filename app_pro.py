@@ -117,8 +117,8 @@ for _ in range(40):
     for bot in st.session_state.nano:
         bot.move(res.grid, pher)
 
-        # تأثير شبه واقعي
-        res.grid[bot.x, bot.y] *= 1.03  # زيادة permeability
+        # تأثير النانو (تحسين permeability)
+        res.grid[bot.x, bot.y] *= 1.03
         pher[bot.x, bot.y] += 0.2
 
     pher *= 0.95
@@ -133,19 +133,19 @@ for _ in range(40):
     ys = [n.y for n in st.session_state.nano]
 
     fig.add_trace(go.Scatter(
-        x=ys,y=xs,
+        x=ys, y=xs,
         mode='markers',
-        marker=dict(color='red',size=7),
+        marker=dict(color='red', size=7),
         name="Nano Bots"
     ))
 
-    chart.plotly_chart(fig,use_container_width=True)
+    chart.plotly_chart(fig, use_container_width=True, key="live_map")
 
     # ===== رسم الإنتاج =====
     fig2 = go.Figure()
-    fig2.add_trace(go.Scatter(y=st.session_state.history,name="Production"))
+    fig2.add_trace(go.Scatter(y=st.session_state.history, name="Production"))
 
-    graph.plotly_chart(fig2,use_container_width=True)
+    graph.plotly_chart(fig2, use_container_width=True, key="prod_chart")
 
     time.sleep(speed)
 
@@ -177,15 +177,17 @@ col1,col2 = st.columns(2)
 
 with col1:
     st.write("Before")
-    st.plotly_chart(go.Figure(data=go.Heatmap(z=res.initial)))
+    fig_before = go.Figure(data=go.Heatmap(z=res.initial))
+    st.plotly_chart(fig_before, use_container_width=True, key="before_map")
 
 with col2:
     st.write("After")
-    st.plotly_chart(go.Figure(data=go.Heatmap(z=res.grid)))
+    fig_after = go.Figure(data=go.Heatmap(z=res.grid))
+    st.plotly_chart(fig_after, use_container_width=True, key="after_map")
 
-# ================= مواقع النانو =================
+# ================= تتبع النانو =================
 st.subheader("📍 Nano Tracking")
 
 positions = [(n.x,n.y,n.visits) for n in st.session_state.nano]
 df = pd.DataFrame(positions,columns=["X","Y","Visits"])
-st.dataframe(df)
+st.dataframe(df, use_container_width=True)
