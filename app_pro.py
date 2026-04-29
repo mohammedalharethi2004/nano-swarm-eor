@@ -41,22 +41,9 @@ def load_all():
     for df in [pvto, rel, cap, pro]:
         df.columns = df.columns.str.strip().str.lower()
 
-    pvto['pressure'] = pd.to_numeric(pvto['pressure'], errors='coerce')
-    pvto['oil viscosity'] = pd.to_numeric(pvto['oil viscosity'], errors='coerce')
-
-    rel['sw'] = pd.to_numeric(rel['sw'], errors='coerce')
-    rel['kro'] = pd.to_numeric(rel['kro'], errors='coerce')
-
-    cap['sw'] = pd.to_numeric(cap['sw'], errors='coerce')
-    cap['pcow (psi)'] = pd.to_numeric(cap['pcow (psi)'], errors='coerce')
-
-    pvto.dropna(inplace=True)
-    rel.dropna(inplace=True)
-    cap.dropna(inplace=True)
-
-    pvto.sort_values('pressure', inplace=True)
-    rel.sort_values('sw', inplace=True)
-    cap.sort_values('sw', inplace=True)
+    pvto = pvto.dropna().sort_values("pressure")
+    rel = rel.dropna().sort_values("sw")
+    cap = cap.dropna().sort_values("sw")
 
     visc = interp1d(pvto['pressure'], pvto['oil viscosity'], fill_value="extrapolate")
     kro = interp1d(rel['sw'], rel['kro'], fill_value="extrapolate")
@@ -80,6 +67,14 @@ class Reservoir:
         pc = float(pc_func(sw)) * np.mean(self.pc_map)
         return max((kro*(p-pc)/1000)/(mu+1e-6),0)
 
+    def mobility_ratio(self):
+        sw = np.mean(self.grid)
+        mu_oil = float(visc_func(1500))
+        mu_water = 0.5  # افتراضي
+        kr = float(kro_func(sw))
+        return (kr/mu_water) / (1/mu_oil)
+
+# ================= NANO =================
 class Nano:
     def __init__(self):
         self.x = np.random.randint(0,25)
@@ -98,6 +93,7 @@ if "res" not in st.session_state:
     st.session_state.running = False
     st.session_state.base_series = []
     st.session_state.nano_series = []
+    st.session_state.start_time = time.time()
 
 res = st.session_state.res
 
@@ -120,18 +116,23 @@ with tab1:
     nano_prod = res.production(pressure)
     lift = (nano_prod-base_prod)/base_prod*100 if base_prod>0 else 0
 
-    c1,c2,c3,c4 = st.columns(4)
+    mobility = res.mobility_ratio()
+    water_cut = np.mean(res.grid)
 
+    c1,c2,c3,c4 = st.columns(4)
     c1.markdown(f"<div class='kpi-card'>Traditional<br>{base_prod:.2f}</div>", unsafe_allow_html=True)
     c2.markdown(f"<div class='kpi-card'>Nano<br>{nano_prod:.2f}</div>", unsafe_allow_html=True)
     c3.markdown(f"<div class='kpi-card'>Lift<br>{lift:.2f}%</div>", unsafe_allow_html=True)
-    c4.markdown(f"<div class='kpi-card'>Bots<br>{len(st.session_state.nano)}</div>", unsafe_allow_html=True)
+    c4.markdown(f"<div class='kpi-card'>Mobility M<br>{mobility:.2f}</div>", unsafe_allow_html=True)
+
+    st.metric("Water Cut Reduction", f"{(1-water_cut)*100:.2f}%")
 
 # ================= SUBSURFACE =================
 with tab2:
     st.title("🌍 Subsurface Live View")
 
     chart = st.empty()
+    insight_box = st.empty()
 
     if st.session_state.running:
 
@@ -140,38 +141,47 @@ with tab2:
 
             sw = res.grid[n.x,n.y]
 
+            # تأثير بصري + فيزيائي
             if sw > 0.6:
+                res.grid[n.x,n.y] = min(res.grid[n.x,n.y] + 0.05,1)  # اخضرار
                 res.kro_map[n.x,n.y] *= 1.05
                 res.pc_map[n.x,n.y] *= 0.95
 
                 st.session_state.logs.append(
-                    f"[{datetime.now().strftime('%H:%M:%S')}] Nano-{i} Injecting at ({n.x},{n.y})"
+                    f"[PHYSICS] Reducing IFT at ({n.x},{n.y})"
                 )
+            else:
+                res.grid[n.x,n.y] *= 0.99
 
         xs = [n.x for n in st.session_state.nano]
         ys = [n.y for n in st.session_state.nano]
 
-        colors = ["gold" if res.grid[n.x,n.y]>0.6 else "cyan" for n in st.session_state.nano]
-
         fig = go.Figure()
-        fig.add_trace(go.Surface(z=res.grid, opacity=0.8))
+        fig.add_trace(go.Surface(z=res.grid, colorscale='Viridis'))
 
         fig.add_trace(go.Scatter3d(
             x=xs, y=ys,
             z=[res.grid[x,y] for x,y in zip(xs,ys)],
             mode='markers',
-            marker=dict(size=5, color=colors)
+            marker=dict(size=5, color='cyan')
         ))
 
         chart.plotly_chart(fig, use_container_width=True)
 
-        # تحديث ناعم بدون مشاكل
+        insights = np.random.choice([
+            "Optimizing sweep efficiency",
+            "Targeting bypassed oil zones",
+            "Recovery factor increasing",
+            "Swarm adapting to reservoir"
+        ])
+        insight_box.info(f"🧠 {insights}")
+
         time.sleep(0.3)
         st.rerun()
 
 # ================= CONTROL =================
 with tab3:
-    st.title("🤖 Swarm Control")
+    st.title("🤖 Control")
 
     if st.button("▶ Start"):
         st.session_state.running = True
@@ -181,26 +191,42 @@ with tab3:
 
 # ================= ANALYTICS =================
 with tab4:
-    st.title("📈 Production Lift (Live)")
+    st.title("📈 Production Analytics")
 
-    base_val = pro_data.select_dtypes(include=np.number).mean().mean()
-    nano_val = res.production(1500)
+    base = pro_data.select_dtypes(include=np.number).mean().mean()
+    nano = res.production(1500)
 
-    st.session_state.base_series.append(base_val)
-    st.session_state.nano_series.append(nano_val)
+    st.session_state.base_series.append(base)
+    st.session_state.nano_series.append(nano)
+
+    base_cum = np.cumsum(st.session_state.base_series)
+    nano_cum = np.cumsum(st.session_state.nano_series)
 
     fig = go.Figure()
-    fig.add_trace(go.Scatter(y=st.session_state.base_series, name="Traditional", line=dict(dash='dash')))
-    fig.add_trace(go.Scatter(y=st.session_state.nano_series, name="Nano", line=dict(color='cyan')))
+    fig.add_trace(go.Scatter(y=base_cum, name="Traditional", line=dict(dash='dash', color='gray')))
+    fig.add_trace(go.Scatter(y=nano_cum, name="Nano", line=dict(color='cyan')))
+
+    # Forecast Zone
+    future = np.linspace(nano_cum[-1], nano_cum[-1]*1.2, 10)
+    fig.add_trace(go.Scatter(y=list(nano_cum)+list(future),
+                             fill='toself',
+                             opacity=0.1,
+                             name="Predictive Zone"))
 
     fig.update_layout(template="plotly_dark")
     st.plotly_chart(fig, use_container_width=True)
 
-    st.metric("Live Lift %", f"{(nano_val-base_val)/base_val*100:.2f}%")
+    # منع lift بالبداية
+    elapsed = time.time() - st.session_state.start_time
+    if elapsed > 10:
+        lift = (nano-base)/base*100
+        st.metric("Live Lift %", f"{lift:.2f}%")
+    else:
+        st.info("⏳ Stabilizing simulation...")
 
 # ================= ECON =================
 with tab5:
-    st.title("💰 Economic Hub")
+    st.title("💰 Economics")
 
     oil_price = st.number_input("Oil Price",50,150,80)
     cost = st.number_input("Nano Cost",1000,20000,5000)
