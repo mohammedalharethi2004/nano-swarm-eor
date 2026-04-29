@@ -2,174 +2,159 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
+import plotly.express as px
 from scipy.interpolate import interp1d
 import time
 
-st.set_page_config(layout="wide", page_title="Nano-Swarm Command Center")
+st.set_page_config(layout="wide", page_title="Nano Command Center")
 
-# ================== تحميل البيانات (مُصحّح) ==================
+# ------------------ STYLE ------------------
+st.markdown("""
+<style>
+body {
+    background-color: #0b0f17;
+}
+.kpi-card {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(0,255,255,0.2);
+    padding: 15px;
+    border-radius: 15px;
+    text-align:center;
+    box-shadow: 0 0 15px rgba(0,255,255,0.2);
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ------------------ DATA ------------------
 @st.cache_data
-def load_data():
-    try:
-        pvto = pd.read_excel("PVTO.xlsx")
-        rel = pd.read_excel("water-oil Relative permeability.xlsx")
+def load():
+    pvto = pd.read_excel("PVTO.xlsx")
+    rel = pd.read_excel("water-oil Relative permeability.xlsx")
 
-        # تنظيف أسماء الأعمدة
-        pvto.columns = pvto.columns.str.strip().str.lower()
-        rel.columns = rel.columns.str.strip().str.lower()
+    pvto.columns = pvto.columns.str.strip().str.lower()
+    rel.columns = rel.columns.str.strip().str.lower()
 
-        # تحويل إلى أرقام
-        pvto['pressure'] = pd.to_numeric(pvto['pressure'], errors='coerce')
-        pvto['oil viscosity'] = pd.to_numeric(pvto['oil viscosity'], errors='coerce')
+    pvto['pressure'] = pd.to_numeric(pvto['pressure'], errors='coerce')
+    pvto['oil viscosity'] = pd.to_numeric(pvto['oil viscosity'], errors='coerce')
+    rel['sw'] = pd.to_numeric(rel['sw'], errors='coerce')
+    rel['kro'] = pd.to_numeric(rel['kro'], errors='coerce')
 
-        rel['sw'] = pd.to_numeric(rel['sw'], errors='coerce')
-        rel['kro'] = pd.to_numeric(rel['kro'], errors='coerce')
+    pvto = pvto.dropna().sort_values('pressure')
+    rel = rel.dropna().sort_values('sw')
 
-        # حذف القيم الفارغة
-        pvto.dropna(subset=['pressure', 'oil viscosity'], inplace=True)
-        rel.dropna(subset=['sw', 'kro'], inplace=True)
+    visc = interp1d(pvto['pressure'], pvto['oil viscosity'], fill_value="extrapolate")
+    kro = interp1d(rel['sw'], rel['kro'], fill_value="extrapolate")
 
-        # ترتيب
-        pvto.sort_values('pressure', inplace=True)
-        rel.sort_values('sw', inplace=True)
+    return visc, kro
 
-        # إزالة التكرار
-        pvto.drop_duplicates(subset=['pressure'], inplace=True)
-        rel.drop_duplicates(subset=['sw'], inplace=True)
+visc_func, kro_func = load()
 
-        visc = interp1d(pvto['pressure'], pvto['oil viscosity'], fill_value="extrapolate")
-        kro = interp1d(rel['sw'], rel['kro'], fill_value="extrapolate")
-
-        return visc, kro
-
-    except Exception as e:
-        st.error(f"خطأ في البيانات: {e}")
-        return None, None
-
-visc_func, kro_func = load_data()
-
-# ================== المكمن ==================
+# ------------------ MODEL ------------------
 class Reservoir:
     def __init__(self):
-        self.grid = np.random.rand(20,20)*0.2+0.15
-        self.initial = self.grid.copy()
+        self.grid = np.random.rand(25,25)
 
-    def production(self, p, sw):
-        if visc_func is None:
-            return 0
-        mu = max(float(visc_func(p)),1e-6)
+    def production(self, pressure, sw):
+        mu = float(visc_func(pressure))
         kr = float(kro_func(sw))
         k = np.mean(self.grid)
-        return (k * kr * p/1000)/mu
+        return (k * kr * pressure/1000) / (mu + 1e-6)
 
-# ================== النانو ==================
 class Nano:
     def __init__(self):
-        self.x = np.random.randint(0,20)
-        self.y = np.random.randint(0,20)
+        self.x = np.random.randint(0,25)
+        self.y = np.random.randint(0,25)
 
     def move(self, grid):
-        gx, gy = np.gradient(grid)
-        self.x = int(np.clip(self.x + gx[self.x,self.y],0,19))
-        self.y = int(np.clip(self.y + gy[self.x,self.y],0,19))
+        dx, dy = np.random.choice([-1,0,1]), np.random.choice([-1,0,1])
+        self.x = np.clip(self.x+dx,0,24)
+        self.y = np.clip(self.y+dy,0,24)
+        grid[self.x,self.y] *= 0.97
 
-# ================== Sidebar ==================
-with st.sidebar:
-    st.title("⚙️ Control Panel")
+# ------------------ STATE ------------------
+if "res" not in st.session_state:
+    st.session_state.res = Reservoir()
+    st.session_state.nano = [Nano() for _ in range(30)]
+    st.session_state.history = []
 
+# ------------------ LAYOUT ------------------
+left, mid, right = st.columns([1,2,1])
+
+# ---------- LEFT CONTROL ----------
+with left:
+    st.header("⚙️ Control")
     pressure = st.slider("Pressure",500,3000,1500)
     sw = st.slider("Water Saturation",0.2,0.8,0.4)
-    speed = st.slider("Speed",0.1,1.0,0.3)
+    oil_price = st.number_input("Oil Price",50,150,80)
+    cost = st.number_input("Nano Cost",1000,10000,3000)
 
-    oil_price = st.number_input("Oil Price ($)",50,150,80)
-    nano_cost = st.number_input("Nano Cost ($)",1000,100000,20000)
-
-    start = st.button("▶ Start")
-    stop = st.button("⏸ Stop")
+    run = st.button("▶ Start")
     reset = st.button("🔄 Reset")
 
-# ================== Session ==================
-if 'res' not in st.session_state:
-    st.session_state.res = Reservoir()
-    st.session_state.nano = [Nano() for _ in range(30)]
-    st.session_state.run = False
-    st.session_state.history = []
+# ---------- CORE ----------
+with mid:
+    st.title("🛢️ Nano-Swarm Command Center")
 
-if start:
-    st.session_state.run = True
-if stop:
-    st.session_state.run = False
-if reset:
-    st.session_state.res = Reservoir()
-    st.session_state.nano = [Nano() for _ in range(30)]
-    st.session_state.history = []
+    base = st.session_state.res.production(pressure, sw)
 
-res = st.session_state.res
-
-# ================== Header ==================
-st.title("🛢️ Nano-Swarm Engineering Command Center")
-
-# ================== KPIs ==================
-base = res.production(pressure, sw)
-
-c1,c2,c3,c4 = st.columns(4)
-c1.metric("Nano Bots", len(st.session_state.nano))
-c2.metric("Base Production", f"{base:.3f}")
-c3.metric("Reservoir Quality", f"{np.mean(res.grid):.3f}")
-c4.metric("Status", "ACTIVE" if st.session_state.run else "IDLE")
-
-# ================== Layout ==================
-col_left, col_right = st.columns([2,1])
-
-# ===== Simulation =====
-with col_left:
-    chart3d = st.empty()
-    heatmap = st.empty()
-
-    for _ in range(40):
-        if not st.session_state.run:
-            break
-
+    if run:
         for n in st.session_state.nano:
-            n.move(res.grid)
-            res.grid[n.x,n.y] *= 1.03
+            n.move(st.session_state.res.grid)
 
-        prod = res.production(pressure, sw)
-        st.session_state.history.append(prod)
+    nano_prod = st.session_state.res.production(pressure, sw)
+    improvement = ((nano_prod-base)/base)*100 if base>0 else 0
 
-        fig3d = go.Figure(data=[go.Surface(z=res.grid)])
-        chart3d.plotly_chart(fig3d, use_container_width=True, key="3d_unique")
+    st.session_state.history.append(nano_prod)
 
-        fig2 = go.Figure(data=go.Heatmap(z=res.grid))
-        heatmap.plotly_chart(fig2, use_container_width=True, key="heat_unique")
+    # KPI
+    k1,k2,k3 = st.columns(3)
+    k1.markdown(f"<div class='kpi-card'>Base<br>{base:.3f}</div>", unsafe_allow_html=True)
+    k2.markdown(f"<div class='kpi-card'>Nano<br>{nano_prod:.3f}</div>", unsafe_allow_html=True)
+    k3.markdown(f"<div class='kpi-card'>Δ%<br>{improvement:.2f}%</div>", unsafe_allow_html=True)
 
-        time.sleep(speed)
+    # 3D
+    fig3d = go.Figure(data=[go.Surface(z=st.session_state.res.grid)])
+    fig3d.update_layout(template="plotly_dark", height=300)
+    st.plotly_chart(fig3d, use_container_width=True)
 
-# ===== Analytics =====
-with col_right:
-    st.subheader("📈 Production Trend")
+    # Heatmap
+    fig2 = px.imshow(st.session_state.res.grid, color_continuous_scale="Blues")
+    fig2.update_layout(template="plotly_dark")
+    st.plotly_chart(fig2, use_container_width=True)
 
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(y=st.session_state.history))
-    st.plotly_chart(fig, use_container_width=True, key="trend_unique")
+    # Streaming chart
+    fig_line = go.Figure()
+    fig_line.add_trace(go.Scatter(y=st.session_state.history, mode='lines'))
+    fig_line.update_layout(template="plotly_dark", height=200)
+    st.plotly_chart(fig_line, use_container_width=True)
 
-    st.subheader("💰 Economics")
+# ---------- RIGHT ----------
+with right:
+    st.header("📊 Analytics")
 
-    enhanced = res.production(pressure, sw)
+    revenue = nano_prod * oil_price
+    npv = revenue - cost
 
-    revenue = enhanced * oil_price
-    profit = revenue - nano_cost
-    roi = (profit/nano_cost)*100 if nano_cost!=0 else 0
+    st.metric("Revenue", f"{revenue:.2f}")
+    st.metric("NPV", f"{npv:.2f}")
 
-    st.metric("Revenue", f"${revenue:.2f}")
-    st.metric("Profit", f"${profit:.2f}")
-    st.metric("ROI", f"{roi:.2f}%")
+    # Gauge
+    gauge = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=pressure,
+        title={'text': "Pressure"},
+        gauge={'axis': {'range': [0,3000]}}
+    ))
+    gauge.update_layout(template="plotly_dark", height=250)
+    st.plotly_chart(gauge)
 
-# ================== Comparison ==================
-st.subheader("🆚 Before vs After")
+    # Alerts
+    st.subheader("🚨 Alerts")
+    if improvement > 5:
+        st.success("Production improving")
+    else:
+        st.warning("Low improvement")
 
-slider = st.slider("Compare",0.0,1.0,0.5)
-combined = (1-slider)*res.initial + slider*res.grid
-
-fig_compare = go.Figure(data=go.Heatmap(z=combined))
-st.plotly_chart(fig_compare, use_container_width=True, key="compare_unique")
+# ---------- STATUS ----------
+st.markdown("---")
+st.markdown("⚡ System Active | CPU: 32% | Nano Bots: Active")
