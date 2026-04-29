@@ -219,6 +219,7 @@ if "res" not in st.session_state:
     st.session_state.simulation_running = False
     st.session_state.manual_dx = 0
     st.session_state.manual_dy = 0
+    st.session_state.time_step = 0 # FIXED: Initialized time_step
     st.session_state.nano_production_history = []
     st.session_state.traditional_production_history = []
     st.session_state.current_pressure = 1500
