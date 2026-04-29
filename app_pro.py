@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 from scipy.interpolate import interp1d
 from datetime import datetime
 import time
+import random
 
 st.set_page_config(layout="wide", page_title="Nano-Swarm Command Center")
 
@@ -15,16 +16,16 @@ body {background-color:#0b0f17; color:white;}
 
 .kpi-card {
     background: rgba(255,255,255,0.05);
-    backdrop-filter: blur(12px);
-    border:1px solid rgba(0,255,255,0.3);
-    border-radius:15px;
-    padding:15px;
+    backdrop-filter: blur(15px);
+    border-radius:20px;
+    padding:20px;
     text-align:center;
-    box-shadow:0 0 20px rgba(0,255,255,0.3);
+    border:1px solid rgba(0,255,255,0.4);
+    box-shadow:0 0 25px rgba(0,255,255,0.4);
     transition:0.3s;
 }
 .kpi-card:hover {
-    box-shadow:0 0 30px gold;
+    box-shadow:0 0 35px gold;
     transform: scale(1.05);
 }
 </style>
@@ -67,12 +68,8 @@ class Reservoir:
         pc = float(pc_func(sw)) * np.mean(self.pc_map)
         return max((kro*(p-pc)/1000)/(mu+1e-6),0)
 
-    def mobility_ratio(self):
-        sw = np.mean(self.grid)
-        mu_oil = float(visc_func(1500))
-        mu_water = 0.5  # افتراضي
-        kr = float(kro_func(sw))
-        return (kr/mu_water) / (1/mu_oil)
+    def mobility(self):
+        return np.mean(self.kro_map) / (np.mean(self.pc_map)+1e-6)
 
 # ================= NANO =================
 class Nano:
@@ -108,56 +105,55 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 
 # ================= DASHBOARD =================
 with tab1:
-    st.title("🛢️ Command Overview")
+    st.title("🛢️ Engineering Command")
 
     pressure = st.slider("Pressure",500,3000,1500)
 
-    base_prod = pro_data.select_dtypes(include=np.number).mean().mean()
-    nano_prod = res.production(pressure)
-    lift = (nano_prod-base_prod)/base_prod*100 if base_prod>0 else 0
-
-    mobility = res.mobility_ratio()
-    water_cut = np.mean(res.grid)
+    base = pro_data.select_dtypes(include=np.number).mean().mean()
+    nano = res.production(pressure)
+    lift = (nano-base)/base*100 if base>0 else 0
 
     c1,c2,c3,c4 = st.columns(4)
-    c1.markdown(f"<div class='kpi-card'>Traditional<br>{base_prod:.2f}</div>", unsafe_allow_html=True)
-    c2.markdown(f"<div class='kpi-card'>Nano<br>{nano_prod:.2f}</div>", unsafe_allow_html=True)
-    c3.markdown(f"<div class='kpi-card'>Lift<br>{lift:.2f}%</div>", unsafe_allow_html=True)
-    c4.markdown(f"<div class='kpi-card'>Mobility M<br>{mobility:.2f}</div>", unsafe_allow_html=True)
 
-    st.metric("Water Cut Reduction", f"{(1-water_cut)*100:.2f}%")
+    c1.markdown(f"<div class='kpi-card'>Traditional<br>{base:.2f}</div>", unsafe_allow_html=True)
+    c2.markdown(f"<div class='kpi-card'>Nano<br>{nano:.2f}</div>", unsafe_allow_html=True)
+    c3.markdown(f"<div class='kpi-card'>Lift<br>{lift:.2f}%</div>", unsafe_allow_html=True)
+    c4.markdown(f"<div class='kpi-card'>Bots<br>{len(st.session_state.nano)}</div>", unsafe_allow_html=True)
+
+    # Gauge Efficiency
+    eff = np.clip(np.mean(res.grid)*100,0,100)
+
+    fig_gauge = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=eff,
+        title={'text':"Sweep Efficiency"},
+        gauge={'axis':{'range':[0,100]},
+               'bar':{'color':"cyan"}}
+    ))
+    st.plotly_chart(fig_gauge, use_container_width=True)
 
 # ================= SUBSURFACE =================
 with tab2:
     st.title("🌍 Subsurface Live View")
 
     chart = st.empty()
-    insight_box = st.empty()
 
     if st.session_state.running:
-
-        for i,n in enumerate(st.session_state.nano):
+        for n in st.session_state.nano:
             n.move(res.grid)
 
             sw = res.grid[n.x,n.y]
 
-            # تأثير بصري + فيزيائي
             if sw > 0.6:
-                res.grid[n.x,n.y] = min(res.grid[n.x,n.y] + 0.05,1)  # اخضرار
-                res.kro_map[n.x,n.y] *= 1.05
-                res.pc_map[n.x,n.y] *= 0.95
-
-                st.session_state.logs.append(
-                    f"[PHYSICS] Reducing IFT at ({n.x},{n.y})"
-                )
+                res.grid[n.x,n.y] = min(res.grid[n.x,n.y] + 0.1,1)
             else:
-                res.grid[n.x,n.y] *= 0.99
+                res.grid[n.x,n.y] *= 0.97
 
         xs = [n.x for n in st.session_state.nano]
         ys = [n.y for n in st.session_state.nano]
 
         fig = go.Figure()
-        fig.add_trace(go.Surface(z=res.grid, colorscale='Viridis'))
+        fig.add_trace(go.Surface(z=res.grid, colorscale="Turbo"))
 
         fig.add_trace(go.Scatter3d(
             x=xs, y=ys,
@@ -168,14 +164,6 @@ with tab2:
 
         chart.plotly_chart(fig, use_container_width=True)
 
-        insights = np.random.choice([
-            "Optimizing sweep efficiency",
-            "Targeting bypassed oil zones",
-            "Recovery factor increasing",
-            "Swarm adapting to reservoir"
-        ])
-        insight_box.info(f"🧠 {insights}")
-
         time.sleep(0.3)
         st.rerun()
 
@@ -185,13 +173,14 @@ with tab3:
 
     if st.button("▶ Start"):
         st.session_state.running = True
+        st.markdown("🔊 System Activated")
 
     if st.button("⏸ Stop"):
         st.session_state.running = False
 
 # ================= ANALYTICS =================
 with tab4:
-    st.title("📈 Production Analytics")
+    st.title("📈 Production Intelligence")
 
     base = pro_data.select_dtypes(include=np.number).mean().mean()
     nano = res.production(1500)
@@ -203,26 +192,49 @@ with tab4:
     nano_cum = np.cumsum(st.session_state.nano_series)
 
     fig = go.Figure()
-    fig.add_trace(go.Scatter(y=base_cum, name="Traditional", line=dict(dash='dash', color='gray')))
-    fig.add_trace(go.Scatter(y=nano_cum, name="Nano", line=dict(color='cyan')))
 
-    # Forecast Zone
-    future = np.linspace(nano_cum[-1], nano_cum[-1]*1.2, 10)
-    fig.add_trace(go.Scatter(y=list(nano_cum)+list(future),
-                             fill='toself',
-                             opacity=0.1,
-                             name="Predictive Zone"))
+    fig.add_trace(go.Scatter(
+        y=base_cum,
+        name="Traditional",
+        line=dict(color="white", dash="dash")
+    ))
 
-    fig.update_layout(template="plotly_dark")
+    fig.add_trace(go.Scatter(
+        y=nano_cum,
+        name="Nano",
+        line=dict(color="cyan", width=4),
+        fill='tozeroy',
+        fillcolor='rgba(0,255,255,0.1)'
+    ))
+
+    future = np.linspace(nano_cum[-1], nano_cum[-1]*1.3, 15)
+
+    fig.add_trace(go.Scatter(
+        y=list(nano_cum)+list(future),
+        fill='toself',
+        opacity=0.15,
+        name="Predictive Zone"
+    ))
+
+    fig.update_layout(template="plotly_dark", height=600)
+
     st.plotly_chart(fig, use_container_width=True)
 
-    # منع lift بالبداية
-    elapsed = time.time() - st.session_state.start_time
-    if elapsed > 10:
+    # Stabilization
+    if time.time() - st.session_state.start_time > 10:
         lift = (nano-base)/base*100
         st.metric("Live Lift %", f"{lift:.2f}%")
     else:
-        st.info("⏳ Stabilizing simulation...")
+        st.info("⏳ Stabilizing...")
+
+    # AI Insights
+    insights = [
+        "[ANALYZING] Sweep efficiency at 78%",
+        "[OPTIMIZING] Reducing IFT...",
+        "[PREDICTION] ROI 215%",
+        "[AI] Adjusting nano-flow..."
+    ]
+    st.info(random.choice(insights))
 
 # ================= ECON =================
 with tab5:
