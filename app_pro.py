@@ -1,9 +1,10 @@
 import streamlit as st
-import numpy as np
 import pandas as pd
+import numpy as np
 import plotly.graph_objects as go
-import time
+from scipy.interpolate import interp1d
 from datetime import datetime
+import time
 
 st.set_page_config(layout="wide", page_title="Nano-Swarm Command Center")
 
@@ -11,30 +12,79 @@ st.set_page_config(layout="wide", page_title="Nano-Swarm Command Center")
 st.markdown("""
 <style>
 body {background-color:#0b0f17; color:white;}
-.kpi {
+
+.kpi-card {
     background: rgba(255,255,255,0.05);
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(12px);
     border:1px solid rgba(0,255,255,0.3);
-    border-radius:12px;
-    padding:10px;
+    border-radius:15px;
+    padding:15px;
     text-align:center;
-    box-shadow:0 0 10px rgba(0,255,255,0.3);
+    box-shadow:0 0 20px rgba(0,255,255,0.3);
+    transition:0.3s;
 }
-.title {color:#00f0ff; font-size:32px;}
+.kpi-card:hover {
+    box-shadow:0 0 30px gold;
+    transform: scale(1.05);
+}
 </style>
 """, unsafe_allow_html=True)
+
+# ================= DATA =================
+@st.cache_data
+def load_all():
+    pvto = pd.read_excel("PVTO.xlsx")
+    rel = pd.read_excel("water-oil Relative permeability.xlsx")
+    cap = pd.read_excel("capillary pressure.xlsx")
+    pro = pd.read_excel("Pro.xlsx", skiprows=8)
+
+    for df in [pvto, rel, cap, pro]:
+        df.columns = df.columns.str.strip().str.lower()
+
+    pvto['pressure'] = pd.to_numeric(pvto['pressure'], errors='coerce')
+    pvto['oil viscosity'] = pd.to_numeric(pvto['oil viscosity'], errors='coerce')
+
+    rel['sw'] = pd.to_numeric(rel['sw'], errors='coerce')
+    rel['kro'] = pd.to_numeric(rel['kro'], errors='coerce')
+
+    cap['sw'] = pd.to_numeric(cap['sw'], errors='coerce')
+    cap['pcow (psi)'] = pd.to_numeric(cap['pcow (psi)'], errors='coerce')
+
+    pvto.dropna(inplace=True)
+    rel.dropna(inplace=True)
+    cap.dropna(inplace=True)
+
+    pvto.sort_values('pressure', inplace=True)
+    rel.sort_values('sw', inplace=True)
+    cap.sort_values('sw', inplace=True)
+
+    visc = interp1d(pvto['pressure'], pvto['oil viscosity'], fill_value="extrapolate")
+    kro = interp1d(rel['sw'], rel['kro'], fill_value="extrapolate")
+    pc = interp1d(cap['sw'], cap['pcow (psi)'], fill_value="extrapolate")
+
+    return visc, kro, pc, pro
+
+visc_func, kro_func, pc_func, pro_data = load_all()
 
 # ================= MODEL =================
 class Reservoir:
     def __init__(self):
         self.grid = np.random.rand(25,25)
         self.initial = self.grid.copy()
+        self.kro_map = np.ones((25,25))
+        self.pc_map = np.ones((25,25))
+
+    def production(self, p):
+        mu = float(visc_func(p))
+        sw_avg = np.mean(self.grid)
+        kro_avg = float(kro_func(sw_avg)) * np.mean(self.kro_map)
+        pc_avg = float(pc_func(sw_avg)) * np.mean(self.pc_map)
+        return max((kro_avg * (p - pc_avg)/1000)/(mu+1e-6),0)
 
 class Nano:
     def __init__(self):
         self.x = np.random.randint(0,25)
         self.y = np.random.randint(0,25)
-        self.active = False
 
     def move(self, grid):
         gx, gy = np.gradient(grid)
@@ -46,121 +96,141 @@ if "res" not in st.session_state:
     st.session_state.res = Reservoir()
     st.session_state.nano = [Nano() for _ in range(30)]
     st.session_state.logs = []
-    st.session_state.history = []
+    st.session_state.nano_series = []
+    st.session_state.base_series = []
 
 res = st.session_state.res
 
-# ================= SIDEBAR =================
-page = st.sidebar.radio("Navigation", [
-    "Dashboard",
-    "Subsurface Live View",
-    "Nano Control",
-    "Analytics",
-    "Economic Hub"
+# ================= TABS =================
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "📊 Dashboard",
+    "🌍 Subsurface",
+    "🤖 Control",
+    "📈 Analytics",
+    "💰 Economics"
 ])
 
 # ================= DASHBOARD =================
-if page == "Dashboard":
-    st.markdown('<div class="title">🛢️ Command Overview</div>', unsafe_allow_html=True)
+with tab1:
+    st.title("🛢️ Command Overview")
 
-    base = np.mean(res.grid)
-    bots = len(st.session_state.nano)
-    quality = np.mean(res.grid)
+    pressure = st.slider("Pressure",500,3000,1500)
 
-    c1,c2,c3 = st.columns(3)
-    c1.markdown(f"<div class='kpi'>Pressure<br>{base:.2f}</div>", unsafe_allow_html=True)
-    c2.markdown(f"<div class='kpi'>Bots<br>{bots}</div>", unsafe_allow_html=True)
-    c3.markdown(f"<div class='kpi'>Quality<br>{quality:.2f}</div>", unsafe_allow_html=True)
+    base_prod = pro_data.select_dtypes(include=np.number).mean().mean()
+    nano_prod = res.production(pressure)
+    lift = (nano_prod-base_prod)/base_prod*100 if base_prod>0 else 0
 
-# ================= LIVE VIEW =================
-elif page == "Subsurface Live View":
+    c1,c2,c3,c4 = st.columns(4)
 
-    st.title("🌍 Subsurface Monitoring")
+    c1.markdown(f"<div class='kpi-card'>Traditional<br>{base_prod:.2f}</div>", unsafe_allow_html=True)
+    c2.markdown(f"<div class='kpi-card'>Nano<br>{nano_prod:.2f}</div>", unsafe_allow_html=True)
+    c3.markdown(f"<div class='kpi-card'>Lift<br>{lift:.2f}%</div>", unsafe_allow_html=True)
+    c4.markdown(f"<div class='kpi-card'>Bots<br>{len(st.session_state.nano)}</div>", unsafe_allow_html=True)
+
+# ================= SUBSURFACE =================
+with tab2:
+    st.title("🌍 Subsurface Live View")
 
     chart = st.empty()
 
-    for _ in range(30):
+    wells = pro_data.columns[:5]
+    wx = np.linspace(0,24,len(wells))
+    wy = np.linspace(0,24,len(wells))
+
+    for _ in range(15):
+        colors = []
+
         for i,n in enumerate(st.session_state.nano):
             n.move(res.grid)
+            sw = res.grid[n.x,n.y]
 
-            # sensing
-            if res.grid[n.x,n.y] > 0.7:
-                n.active = True
+            if sw > 0.6:
+                res.kro_map[n.x,n.y] *= 1.05
+                res.pc_map[n.x,n.y] *= 0.95
+                colors.append("gold")
+
                 st.session_state.logs.append(
-                    f"[{datetime.now().strftime('%H:%M:%S')}] Nano {i}: Oil detected at ({n.x},{n.y})"
+                    f"[{datetime.now().strftime('%H:%M:%S')}] Nano-{i}: Injecting at ({n.x},{n.y})"
                 )
+            else:
+                colors.append("cyan")
 
-            # treatment effect
-            if n.active:
-                res.grid[n.x,n.y] *= 1.02
-
-        # plotting
         xs = [n.x for n in st.session_state.nano]
         ys = [n.y for n in st.session_state.nano]
-        colors = ["gold" if n.active else "cyan" for n in st.session_state.nano]
 
         fig = go.Figure()
-
-        fig.add_trace(go.Surface(z=res.grid, colorscale='Viridis'))
+        fig.add_trace(go.Surface(z=res.grid, opacity=0.8))
 
         fig.add_trace(go.Scatter3d(
-            x=xs, y=ys, z=[res.grid[x,y] for x,y in zip(xs,ys)],
+            x=xs, y=ys,
+            z=[res.grid[x,y] for x,y in zip(xs,ys)],
             mode='markers',
             marker=dict(size=5, color=colors)
+        ))
+
+        fig.add_trace(go.Scatter3d(
+            x=wx, y=wy, z=[1]*len(wells),
+            mode='text',
+            text=wells
         ))
 
         chart.plotly_chart(fig, use_container_width=True)
         time.sleep(0.2)
 
 # ================= CONTROL =================
-elif page == "Nano Control":
-
-    st.title("🤖 Swarm Control Panel")
+with tab3:
+    st.title("🤖 Swarm Control")
 
     mode = st.radio("Mode", ["Auto","Manual"])
-
     tx = st.slider("Target X",0,24,12)
     ty = st.slider("Target Y",0,24,12)
 
     if st.button("Apply"):
-        for n in st.session_state.nano:
-            if mode=="Manual":
+        if mode=="Manual":
+            for n in st.session_state.nano:
                 n.x += np.sign(tx - n.x)
                 n.y += np.sign(ty - n.y)
 
 # ================= ANALYTICS =================
-elif page == "Analytics":
+with tab4:
+    st.title("📈 Production Lift (Live)")
 
-    st.title("📊 Production Analytics")
+    base_val = pro_data.select_dtypes(include=np.number).mean().mean()
+    nano_val = res.production(1500)
 
-    base = np.mean(res.initial)
-    current = np.mean(res.grid)
-
-    st.session_state.history.append(current)
+    st.session_state.base_series.append(base_val)
+    st.session_state.nano_series.append(nano_val)
 
     fig = go.Figure()
-    fig.add_trace(go.Scatter(y=st.session_state.history, name="Nano"))
-    fig.add_hline(y=base, line_dash="dash", name="Base")
+    fig.add_trace(go.Scatter(y=st.session_state.base_series, name="Traditional", line=dict(dash='dash')))
+    fig.add_trace(go.Scatter(y=st.session_state.nano_series, name="Nano", line=dict(color='cyan')))
 
+    fig.update_layout(template="plotly_dark")
     st.plotly_chart(fig, use_container_width=True)
 
-    st.metric("Improvement %", f"{(current-base)/base*100:.2f}%")
+    st.metric("Live Lift %", f"{(nano_val-base_val)/base_val*100:.2f}%")
 
 # ================= ECON =================
-elif page == "Economic Hub":
-
-    st.title("💰 Economic Analysis")
+with tab5:
+    st.title("💰 Economic Hub")
 
     oil_price = st.number_input("Oil Price",50,150,80)
-    cost = st.number_input("Cost",1000,10000,3000)
+    cost = st.number_input("Nano Cost",1000,20000,5000)
 
-    production = np.mean(res.grid)
-
+    production = res.production(1500)
     revenue = production * oil_price
     npv = revenue - cost
 
     st.metric("Revenue", f"${revenue:.2f}")
     st.metric("NPV", f"${npv:.2f}")
+
+    df = pd.DataFrame({
+        "Production":[production],
+        "Revenue":[revenue],
+        "NPV":[npv]
+    })
+
+    st.download_button("📥 Export Report", df.to_csv(), "report.csv")
 
 # ================= LOG =================
 st.markdown("### 🧠 Event Console")
