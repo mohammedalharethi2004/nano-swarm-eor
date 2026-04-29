@@ -2,32 +2,14 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-import plotly.express as px
 from scipy.interpolate import interp1d
 import time
 
-st.set_page_config(layout="wide", page_title="Nano Command Center")
+st.set_page_config(layout="wide", page_title="Nano-Swarm AI EOR")
 
-# ------------------ STYLE ------------------
-st.markdown("""
-<style>
-body {
-    background-color: #0b0f17;
-}
-.kpi-card {
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(0,255,255,0.2);
-    padding: 15px;
-    border-radius: 15px;
-    text-align:center;
-    box-shadow: 0 0 15px rgba(0,255,255,0.2);
-}
-</style>
-""", unsafe_allow_html=True)
-
-# ------------------ DATA ------------------
+# ================= DATA =================
 @st.cache_data
-def load():
+def load_data():
     pvto = pd.read_excel("PVTO.xlsx")
     rel = pd.read_excel("water-oil Relative permeability.xlsx")
 
@@ -47,114 +29,160 @@ def load():
 
     return visc, kro
 
-visc_func, kro_func = load()
+visc_func, kro_func = load_data()
 
-# ------------------ MODEL ------------------
+# ================= MODEL =================
 class Reservoir:
     def __init__(self):
         self.grid = np.random.rand(25,25)
+        self.viscosity_map = np.ones((25,25))
 
-    def production(self, pressure, sw):
-        mu = float(visc_func(pressure))
+    def production(self, p, sw):
+        mu = float(visc_func(p)) * np.mean(self.viscosity_map)
         kr = float(kro_func(sw))
-        k = np.mean(self.grid)
-        return (k * kr * pressure/1000) / (mu + 1e-6)
+        return (np.mean(self.grid)*kr*p/1000)/(mu+1e-6)
 
 class Nano:
     def __init__(self):
         self.x = np.random.randint(0,25)
         self.y = np.random.randint(0,25)
 
-    def move(self, grid):
-        dx, dy = np.random.choice([-1,0,1]), np.random.choice([-1,0,1])
-        self.x = np.clip(self.x+dx,0,24)
-        self.y = np.clip(self.y+dy,0,24)
-        grid[self.x,self.y] *= 0.97
+    def move_auto(self, grid):
+        gx, gy = np.gradient(grid)
+        self.x = int(np.clip(self.x + gx[self.x,self.y],0,24))
+        self.y = int(np.clip(self.y + gy[self.x,self.y],0,24))
 
-# ------------------ STATE ------------------
+    def move_manual(self, target):
+        tx, ty = target
+        self.x += np.sign(tx - self.x)
+        self.y += np.sign(ty - self.y)
+        self.x = int(np.clip(self.x,0,24))
+        self.y = int(np.clip(self.y,0,24))
+
+# ================= SESSION =================
 if "res" not in st.session_state:
     st.session_state.res = Reservoir()
-    st.session_state.nano = [Nano() for _ in range(30)]
+    st.session_state.nano = [Nano() for _ in range(25)]
     st.session_state.history = []
+    st.session_state.logs = []
+    st.session_state.phase = 0
 
-# ------------------ LAYOUT ------------------
-left, mid, right = st.columns([1,2,1])
+res = st.session_state.res
 
-# ---------- LEFT CONTROL ----------
-with left:
+# ================= UI =================
+col1, col2, col3 = st.columns([1,2,1])
+
+# ===== CONTROL =====
+with col1:
     st.header("⚙️ Control")
+
     pressure = st.slider("Pressure",500,3000,1500)
-    sw = st.slider("Water Saturation",0.2,0.8,0.4)
+    sw = st.slider("Sw",0.2,0.8,0.4)
+
+    mode = st.radio("Mode", ["Auto","Manual"])
+
+    target_x = st.number_input("Target X",0,24,12)
+    target_y = st.number_input("Target Y",0,24,12)
+
     oil_price = st.number_input("Oil Price",50,150,80)
     cost = st.number_input("Nano Cost",1000,10000,3000)
 
     run = st.button("▶ Start")
     reset = st.button("🔄 Reset")
 
-# ---------- CORE ----------
-with mid:
-    st.title("🛢️ Nano-Swarm Command Center")
+# ===== CORE =====
+with col2:
+    st.title("🛢️ Nano-Swarm Core Engine")
 
-    base = st.session_state.res.production(pressure, sw)
+    progress = st.progress(st.session_state.phase/4)
+
+    chart = st.empty()
+    heat = st.empty()
 
     if run:
-        for n in st.session_state.nano:
-            n.move(st.session_state.res.grid)
+        for step in range(20):
 
-    nano_prod = st.session_state.res.production(pressure, sw)
-    improvement = ((nano_prod-base)/base)*100 if base>0 else 0
+            # phases
+            st.session_state.phase = min(4, st.session_state.phase + 0.05)
+            progress.progress(st.session_state.phase/4)
 
-    st.session_state.history.append(nano_prod)
+            for i,n in enumerate(st.session_state.nano):
 
-    # KPI
-    k1,k2,k3 = st.columns(3)
-    k1.markdown(f"<div class='kpi-card'>Base<br>{base:.3f}</div>", unsafe_allow_html=True)
-    k2.markdown(f"<div class='kpi-card'>Nano<br>{nano_prod:.3f}</div>", unsafe_allow_html=True)
-    k3.markdown(f"<div class='kpi-card'>Δ%<br>{improvement:.2f}%</div>", unsafe_allow_html=True)
+                if mode=="Auto":
+                    n.move_auto(res.grid)
+                else:
+                    n.move_manual((target_x,target_y))
 
-    # 3D
-    fig3d = go.Figure(data=[go.Surface(z=st.session_state.res.grid)])
-    fig3d.update_layout(template="plotly_dark", height=300)
-    st.plotly_chart(fig3d, use_container_width=True)
+                # chemical effect (reduce viscosity)
+                res.viscosity_map[n.x,n.y] *= 0.97
+                res.grid[n.x,n.y] *= 1.02
 
-    # Heatmap
-    fig2 = px.imshow(st.session_state.res.grid, color_continuous_scale="Blues")
-    fig2.update_layout(template="plotly_dark")
-    st.plotly_chart(fig2, use_container_width=True)
+                # communication
+                for other in st.session_state.nano:
+                    if abs(other.x-n.x)<2 and abs(other.y-n.y)<2:
+                        other.x, other.y = n.x, n.y
 
-    # Streaming chart
-    fig_line = go.Figure()
-    fig_line.add_trace(go.Scatter(y=st.session_state.history, mode='lines'))
-    fig_line.update_layout(template="plotly_dark", height=200)
-    st.plotly_chart(fig_line, use_container_width=True)
+                # logs
+                if np.random.rand()>0.95:
+                    st.session_state.logs.append(
+                        f"Nano-{i} detected oil at ({n.x},{n.y})"
+                    )
 
-# ---------- RIGHT ----------
-with right:
+            prod = res.production(pressure,sw)
+            st.session_state.history.append(prod)
+
+            # 3D
+            fig3d = go.Figure(data=[go.Surface(z=res.grid)])
+            chart.plotly_chart(fig3d, use_container_width=True)
+
+            # Heatmap + Nano tracking
+            xs = [n.x for n in st.session_state.nano]
+            ys = [n.y for n in st.session_state.nano]
+
+            fig = go.Figure()
+            fig.add_trace(go.Heatmap(z=res.grid))
+            fig.add_trace(go.Scatter(x=ys, y=xs, mode='markers',
+                                     marker=dict(color='red', size=6)))
+            heat.plotly_chart(fig, use_container_width=True)
+
+            time.sleep(0.2)
+
+# ===== ANALYTICS =====
+with col3:
     st.header("📊 Analytics")
+
+    base = res.production(pressure,sw)
+    nano_prod = base if len(st.session_state.history)==0 else st.session_state.history[-1]
+
+    improvement = ((nano_prod-base)/base)*100 if base>0 else 0
 
     revenue = nano_prod * oil_price
     npv = revenue - cost
 
-    st.metric("Revenue", f"{revenue:.2f}")
+    st.metric("Base", f"{base:.3f}")
+    st.metric("Nano", f"{nano_prod:.3f}")
+    st.metric("Δ%", f"{improvement:.2f}")
     st.metric("NPV", f"{npv:.2f}")
 
-    # Gauge
-    gauge = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=pressure,
-        title={'text': "Pressure"},
-        gauge={'axis': {'range': [0,3000]}}
-    ))
-    gauge.update_layout(template="plotly_dark", height=250)
-    st.plotly_chart(gauge)
+    # trend
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(y=st.session_state.history))
+    st.plotly_chart(fig, use_container_width=True)
 
-    # Alerts
-    st.subheader("🚨 Alerts")
-    if improvement > 5:
-        st.success("Production improving")
-    else:
-        st.warning("Low improvement")
+# ===== LOG CONSOLE =====
+st.subheader("🧠 Incident Console")
 
-# ---------- STATUS ----------
+for log in st.session_state.logs[-10:]:
+    st.text(log)
+
+# ===== EXPORT =====
+df = pd.DataFrame({"Production": st.session_state.history})
+st.download_button("📥 Export CSV", df.to_csv(), "report.csv")
+
+# ===== STATUS =====
 st.markdown("---")
-st.markdown("⚡ System Active | CPU: 32% | Nano Bots: Active")
+st.markdown(f"""
+⚡ Energy: {np.random.randint(50,100)}% |
+🧠 CPU: {np.random.randint(10,90)}% |
+🌐 Status: {"RUNNING" if run else "IDLE"}
+""")
