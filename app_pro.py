@@ -70,16 +70,15 @@ visc_func, kro_func, pc_func, pro_data = load_all()
 class Reservoir:
     def __init__(self):
         self.grid = np.random.rand(25,25)
-        self.initial = self.grid.copy()
         self.kro_map = np.ones((25,25))
         self.pc_map = np.ones((25,25))
 
     def production(self, p):
         mu = float(visc_func(p))
-        sw_avg = np.mean(self.grid)
-        kro_avg = float(kro_func(sw_avg)) * np.mean(self.kro_map)
-        pc_avg = float(pc_func(sw_avg)) * np.mean(self.pc_map)
-        return max((kro_avg * (p - pc_avg)/1000)/(mu+1e-6),0)
+        sw = np.mean(self.grid)
+        kro = float(kro_func(sw)) * np.mean(self.kro_map)
+        pc = float(pc_func(sw)) * np.mean(self.pc_map)
+        return max((kro*(p-pc)/1000)/(mu+1e-6),0)
 
 class Nano:
     def __init__(self):
@@ -96,8 +95,9 @@ if "res" not in st.session_state:
     st.session_state.res = Reservoir()
     st.session_state.nano = [Nano() for _ in range(30)]
     st.session_state.logs = []
-    st.session_state.nano_series = []
+    st.session_state.running = False
     st.session_state.base_series = []
+    st.session_state.nano_series = []
 
 res = st.session_state.res
 
@@ -133,30 +133,25 @@ with tab2:
 
     chart = st.empty()
 
-    wells = pro_data.columns[:5]
-    wx = np.linspace(0,24,len(wells))
-    wy = np.linspace(0,24,len(wells))
-
-    for _ in range(15):
-        colors = []
+    if st.session_state.running:
 
         for i,n in enumerate(st.session_state.nano):
             n.move(res.grid)
+
             sw = res.grid[n.x,n.y]
 
             if sw > 0.6:
                 res.kro_map[n.x,n.y] *= 1.05
                 res.pc_map[n.x,n.y] *= 0.95
-                colors.append("gold")
 
                 st.session_state.logs.append(
-                    f"[{datetime.now().strftime('%H:%M:%S')}] Nano-{i}: Injecting at ({n.x},{n.y})"
+                    f"[{datetime.now().strftime('%H:%M:%S')}] Nano-{i} Injecting at ({n.x},{n.y})"
                 )
-            else:
-                colors.append("cyan")
 
         xs = [n.x for n in st.session_state.nano]
         ys = [n.y for n in st.session_state.nano]
+
+        colors = ["gold" if res.grid[n.x,n.y]>0.6 else "cyan" for n in st.session_state.nano]
 
         fig = go.Figure()
         fig.add_trace(go.Surface(z=res.grid, opacity=0.8))
@@ -168,28 +163,21 @@ with tab2:
             marker=dict(size=5, color=colors)
         ))
 
-        fig.add_trace(go.Scatter3d(
-            x=wx, y=wy, z=[1]*len(wells),
-            mode='text',
-            text=wells
-        ))
-
         chart.plotly_chart(fig, use_container_width=True)
-        time.sleep(0.2)
+
+        # تحديث ناعم بدون مشاكل
+        time.sleep(0.3)
+        st.rerun()
 
 # ================= CONTROL =================
 with tab3:
     st.title("🤖 Swarm Control")
 
-    mode = st.radio("Mode", ["Auto","Manual"])
-    tx = st.slider("Target X",0,24,12)
-    ty = st.slider("Target Y",0,24,12)
+    if st.button("▶ Start"):
+        st.session_state.running = True
 
-    if st.button("Apply"):
-        if mode=="Manual":
-            for n in st.session_state.nano:
-                n.x += np.sign(tx - n.x)
-                n.y += np.sign(ty - n.y)
+    if st.button("⏸ Stop"):
+        st.session_state.running = False
 
 # ================= ANALYTICS =================
 with tab4:
