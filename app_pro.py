@@ -378,29 +378,37 @@ with tabs[6]:
         st.download_button("Download Report", report, "report.md")
 
 with tabs[7]:
-    st.markdown("<h2>Project Guide / دليل المشروع</h2>", unsafe_allow_html=True)
+    st.markdown("<h2>Engineering User Guide / دليل المستخدم الهندسي</h2>", unsafe_allow_html=True)
     
     st.markdown("""
     <div class='guide-section'>
-        <h3>About the Project / عن المشروع</h3>
-        <p><b>English:</b> This project simulates an intelligent Nano-Robot Swarm for Enhanced Oil Recovery (EOR). The swarm navigates the reservoir to identify trapped oil, reduce viscosity, and alter rock wettability, significantly increasing production efficiency while reducing environmental impact.</p>
-        <p><b>العربية:</b> يهدف هذا المشروع إلى محاكاة سرب من الروبوتات النانوية الذكية لتحسين استخراج النفط. يقوم السرب بالتنقل داخل المكمن لتحديد أماكن النفط المحبوس، وتقليل اللزوجة، وتغيير بللية الصخور، مما يرفع كفاءة الإنتاج بشكل كبير مع تقليل الآثار البيئية.</p>
+        <h3>1. Pre-Injection Baseline / مرحلة ما قبل الحقن</h3>
+        <p><b>English:</b> Start by observing the <b>Traditional Production</b> in the Dashboard. Adjust the <b>Reservoir Pressure</b> slider to see how conventional recovery performs under different conditions. This establishes your baseline for comparison.</p>
+        <p><b>العربية:</b> ابدأ بمراقبة <b>الإنتاج التقليدي</b> في لوحة التحكم. قم بتغيير <b>ضغط المكمن</b> لملاحظة أداء الاستخراج التقليدي في ظروف مختلفة، مما يضع مرجعاً أساسياً للمقارنة.</p>
     </div>
     
     <div class='guide-section'>
-        <h3>How to Run / طريقة التشغيل</h3>
-        <p><b>English:</b> 1. Install dependencies: <code>pip install streamlit pandas numpy plotly scipy openpyxl</code>. 2. Place Excel files (PVTO, Rel-Perm, Capillary, Pro) in the same folder. 3. Run: <code>streamlit run [filename].py</code>.</p>
-        <p><b>العربية:</b> 1. تثبيت المكتبات المطلوبة. 2. وضع ملفات الإكسل الأربعة في نفس مجلد الكود. 3. تشغيل الأمر <code>streamlit run [filename].py</code> في الطرفية.</p>
+        <h3>2. Swarm Activation (Injection) / تفعيل السرب (لحظة الحقن)</h3>
+        <p><b>English:</b> Navigate to <b>Mission Control</b> and press <b>ACTIVATE NANO-SWARM</b>. This simulates the physical injection of nano-robots into the reservoir. Watch the <b>Event Console</b> for real-time deployment logs.</p>
+        <p><b>العربية:</b> انتقل إلى <b>Mission Control</b> واضغط على <b>ACTIVATE NANO-SWARM</b>. هذا يحاكي عملية حقن الروبوتات فعلياً في المكمن. راقب <b>كونسول الأحداث</b> لمتابعة سجلات الإطلاق اللحظية.</p>
     </div>
     
     <div class='guide-section'>
-        <h3>Key Features / المميزات الفخمة</h3>
-        <ul>
-            <li><b>Digital Twin:</b> 3D real-time subsurface visualization.</li>
-            <li><b>Mission Control:</b> Full swarm management and manual override.</li>
-            <li><b>AI Analytics:</b> Predictive forecasting and sensitivity analysis.</li>
-            <li><b>ROI Calculations:</b> Real-time economic and sustainability metrics.</li>
-        </ul>
+        <h3>3. Subsurface Monitoring / المراقبة تحت السطحية</h3>
+        <p><b>English:</b> In the <b>Digital Twin</b> tab, observe the swarm's behavior. The movement reflects the search for <b>trapped oil</b>. Color changes (Cyan to Red) indicate energy consumption and the physical effort to <b>reduce viscosity</b> and alter <b>wettability</b>.</p>
+        <p><b>العربية:</b> في تبويب <b>Digital Twin</b>، راقب سلوك السرب. تعكس الحركة عملية البحث عن <b>النفط المحبوس</b>، بينما تشير تغيرات الألوان (من السماوي للأحمر) إلى استهلاك الطاقة والجهد الفيزيائي لـ <b>تقليل اللزوجة</b> وتغيير <b>بللية الصخور</b>.</p>
+    </div>
+    
+    <div class='guide-section'>
+        <h3>4. Mechatronics Control / التحكم الميكاترونكسي</h3>
+        <p><b>English:</b> Use the <b>Directional Buttons</b> in Mission Control to manually guide the swarm. This demonstrates the mechatronics core of the project, allowing engineers to steer the robots toward production wells or tight zones.</p>
+        <p><b>العربية:</b> استخدم <b>أزرار الاتجاهات</b> في Mission Control لتوجيه السرب يدوياً. هذا يبرز جوهر الميكاترونكس في المشروع، حيث يتيح للمهندس توجيه الروبوتات نحو آبار الإنتاج أو المناطق الصعبة.</p>
+    </div>
+    
+    <div class='guide-section'>
+        <h3>5. Economic & Environmental Impact / الأثر الاقتصادي والبيئي</h3>
+        <p><b>English:</b> Finally, analyze the <b>Economics & ROI</b>. Observe how the <b>Nano Lift</b> translates into revenue, while simultaneously monitoring <b>Water Saving</b> and <b>Carbon Reduction</b>, achieving the project's ultimate goal of sustainable EOR.</p>
+        <p><b>العربية:</b> أخيراً، قم بتحليل <b>الجانب الاقتصادي</b>. لاحظ كيف تترجم زيادة الإنتاج إلى أرباح، مع مراقبة <b>توفير المياه</b> و<b>تقليل الكربون</b>، لتحقيق الهدف النهائي للمشروع في الاستخراج المستدام.</p>
     </div>
     
     <div class='guide-section'>
