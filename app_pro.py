@@ -118,6 +118,23 @@ st.markdown(f"""
         max-height: 350px;
         overflow-y: auto;
     }}
+
+    .guide-section {{
+        background: rgba(26, 26, 58, 0.6);
+        border-left: 5px solid var(--primary-color);
+        padding: 20px;
+        margin-bottom: 20px;
+        border-radius: 0 15px 15px 0;
+    }}
+
+    .team-member {{
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.2em;
+        color: var(--secondary-color);
+        margin: 10px 0;
+        padding: 10px;
+        border-bottom: 1px solid rgba(0, 204, 255, 0.2);
+    }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -219,7 +236,7 @@ if "res" not in st.session_state:
     st.session_state.simulation_running = False
     st.session_state.manual_dx = 0
     st.session_state.manual_dy = 0
-    st.session_state.time_step = 0 # FIXED: Initialized time_step
+    st.session_state.time_step = 0
     st.session_state.nano_production_history = []
     st.session_state.traditional_production_history = []
     st.session_state.current_pressure = 1500
@@ -242,7 +259,7 @@ def log_event(type, message):
 
 # --- Dashboard ---
 st.markdown("<h1>Nano-Swarm EOR Masterpiece - Final Edition</h1>", unsafe_allow_html=True)
-tabs = st.tabs(["Dashboard", "Subsurface Digital Twin", "Mission Control", "AI Analytics & Sensitivity", "Economics & ROI", "Field Map", "Technical Report"])
+tabs = st.tabs(["Dashboard", "Subsurface Digital Twin", "Mission Control", "AI Analytics & Sensitivity", "Economics & ROI", "Field Map", "Technical Report", "Project Guide / دليل المشروع"])
 
 with tabs[0]:
     st.markdown("<h2>Operational Overview</h2>", unsafe_allow_html=True)
@@ -359,6 +376,42 @@ with tabs[6]:
     if st.button("Generate Report"):
         report = f"# Nano-Swarm EOR Report\n\n**Best Production:** {st.session_state.best_production:.2f} bbl/day\n**Max Lift:** {lift:+.2f}%\n**Avg Energy:** {np.mean([n.energy for n in st.session_state.nano_swarm]):.1f}%"
         st.download_button("Download Report", report, "report.md")
+
+with tabs[7]:
+    st.markdown("<h2>Project Guide / دليل المشروع</h2>", unsafe_allow_html=True)
+    
+    st.markdown("""
+    <div class='guide-section'>
+        <h3>About the Project / عن المشروع</h3>
+        <p><b>English:</b> This project simulates an intelligent Nano-Robot Swarm for Enhanced Oil Recovery (EOR). The swarm navigates the reservoir to identify trapped oil, reduce viscosity, and alter rock wettability, significantly increasing production efficiency while reducing environmental impact.</p>
+        <p><b>العربية:</b> يهدف هذا المشروع إلى محاكاة سرب من الروبوتات النانوية الذكية لتحسين استخراج النفط. يقوم السرب بالتنقل داخل المكمن لتحديد أماكن النفط المحبوس، وتقليل اللزوجة، وتغيير بللية الصخور، مما يرفع كفاءة الإنتاج بشكل كبير مع تقليل الآثار البيئية.</p>
+    </div>
+    
+    <div class='guide-section'>
+        <h3>How to Run / طريقة التشغيل</h3>
+        <p><b>English:</b> 1. Install dependencies: <code>pip install streamlit pandas numpy plotly scipy openpyxl</code>. 2. Place Excel files (PVTO, Rel-Perm, Capillary, Pro) in the same folder. 3. Run: <code>streamlit run [filename].py</code>.</p>
+        <p><b>العربية:</b> 1. تثبيت المكتبات المطلوبة. 2. وضع ملفات الإكسل الأربعة في نفس مجلد الكود. 3. تشغيل الأمر <code>streamlit run [filename].py</code> في الطرفية.</p>
+    </div>
+    
+    <div class='guide-section'>
+        <h3>Key Features / المميزات الفخمة</h3>
+        <ul>
+            <li><b>Digital Twin:</b> 3D real-time subsurface visualization.</li>
+            <li><b>Mission Control:</b> Full swarm management and manual override.</li>
+            <li><b>AI Analytics:</b> Predictive forecasting and sensitivity analysis.</li>
+            <li><b>ROI Calculations:</b> Real-time economic and sustainability metrics.</li>
+        </ul>
+    </div>
+    
+    <div class='guide-section'>
+        <h3>Development Team / فريق العمل</h3>
+        <div class='team-member'>• Bashar Abdullah salah Al-zaidy</div>
+        <div class='team-member'>• Rafa Saeed Abdullah Al-Qadasi</div>
+        <div class='team-member'>• Ahmed Haysami Ahmed Alhaisami</div>
+        <div class='team-member'>• Radman Hames Ahmed Omair</div>
+        <div class='team-member'>• Abdulqader Rafat Saeed Awadh Ben Fareg</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 st.markdown("---")
 st.markdown("<h2>🧠 System Event Console</h2>", unsafe_allow_html=True)
