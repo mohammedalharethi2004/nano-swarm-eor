@@ -1,137 +1,170 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from scipy.interpolate import interp1d
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
+from scipy.interpolate import interp1d
+import time, random, datetime
+from scipy.ndimage import gaussian_filter
 
-# --- 1. إعدادات الصفحة والواجهة (نفس تصميم المبرمج) ---
-st.set_page_config(page_title="Nano-Swarm Core", layout="wide")
+# ================== CONFIG ==================
+st.set_page_config(layout="wide", page_title="Nano-Swarm EOR", page_icon="🚀")
 
-st.markdown("""
-    <style>
-    .main { background-color: #0e1117; color: white; }
-    .stMetric { background-color: #1e2130; padding: 15px; border-radius: 10px; border: 1px solid #4e5d6c; }
-    h1, h2, h3 { color: #00d4ff; }
-    </style>
-    """, unsafe_allow_html=True)
-
-st.title("🛢️ Nano-Swarm Core: Advanced Reservoir Simulator")
-st.write("Mechatronics Engineering Graduation Project")
-st.markdown("---")
-
-# --- 2. دالة البحث الذكي (لحل مشكلة أسماء الأعمدة المفقودة) ---
-def find_column(df, keywords):
-    for col in df.columns:
-        if any(key.lower() in str(col).lower() for key in keywords):
-            return col
-    return None
-
-# --- 3. دالة تحميل البيانات الكاملة (بكل تعديلات الإصلاح) ---
+# ================== SMART DATA LOADER ==================
 @st.cache_data
-def load_all_reservoir_data():
-    try:
-        # قراءة الملفات الأربعة الأساسية
-        pvto = pd.read_excel("PVTO.xlsx")
-        rel_perm = pd.read_excel("water-oil Relative permeability.xlsx")
-        cap_press = pd.read_excel("capillary pressure.xlsx")
-        pro_history = pd.read_excel("Pro.xlsx", skiprows=8)
+def load_data():
+    import re
 
-        # تنظيف آلي لجميع الملفات من أي نصوص (مثل psi, cP) لضمان عدم انهيار الكود
-        for data in [pvto, rel_perm, cap_press, pro_history]:
-            for column in data.columns:
-                data[column] = pd.to_numeric(data[column], errors='coerce')
-            data.dropna(how='all', inplace=True)
+    def clean_columns(df):
+        df.columns = [str(col).strip().lower().replace(" ", "_") for col in df.columns]
+        return df
 
-        # تجهيز دوال الانتربولشن (نفس حسابات المبرمج)
-        # PVTO
-        p_col = find_column(pvto, ['pressure', 'press'])
-        v_col = find_column(pvto, ['viscosity', 'visc'])
-        visc_func = interp1d(pvto[p_col], pvto[v_col], fill_value="extrapolate")
-
-        # Relative Permeability
-        sw_col = find_column(rel_perm, ['sw', 'water'])
-        kro_col = find_column(rel_perm, ['kro', 'oil'])
-        krw_col = find_column(rel_perm, ['krw', 'water_rel'])
-        kro_func = interp1d(rel_perm[sw_col], rel_perm[kro_col], fill_value="extrapolate")
-        krw_func = interp1d(rel_perm[sw_col], rel_perm[krw_col], fill_value="extrapolate")
-
-        # Capillary Pressure
-        sw_c_col = find_column(cap_press, ['sw', 'water'])
-        pc_col = find_column(cap_press, ['pc', 'psi', 'press'])
-        pc_func = interp1d(cap_press[sw_c_col], cap_press[pc_col], fill_value="extrapolate")
-
-        return visc_func, kro_func, krw_func, pc_func, pro_history, rel_perm, cap_press
-    
-    except Exception as e:
-        st.error(f"❌ حدث خطأ في تحميل البيانات: {e}")
+    def find_column(df, keywords):
+        for col in df.columns:
+            for key in keywords:
+                if key in col:
+                    return col
         return None
 
-# --- 4. تنفيذ التحميل ---
-data_package = load_all_reservoir_data()
+    def clean_numeric(series):
+        return pd.to_numeric(
+            series.astype(str).str.replace(r"[^\d\.\-]", "", regex=True),
+            errors="coerce"
+        )
 
-if data_package:
-    visc_f, kro_f, krw_f, pc_f, pro_df, raw_rel, raw_cap = data_package
+    try:
+        pvto_df = clean_columns(pd.read_excel("PVTO.xlsx"))
+        rel_perm_df = clean_columns(pd.read_excel("water-oil Relative permeability.xlsx"))
+        cap_press_df = clean_columns(pd.read_excel("capillary pressure.xlsx"))
+        pro_df = pd.read_excel("Pro.xlsx", skiprows=8)
 
-    # --- 5. لوحة التحكم الجانبية (Sidebar) ---
-    st.sidebar.header("🕹️ Simulation Controls")
-    target_pressure = st.sidebar.slider("Reservoir Pressure (psi)", 
-                                        float(pro_df.iloc[:,1].min() if not pro_df.empty else 500), 
-                                        5000.0, 2500.0)
-    target_sw = st.sidebar.slider("Water Saturation (Sw)", 0.0, 1.0, 0.35)
-    
-    st.sidebar.markdown("---")
-    nano_swarm = st.sidebar.toggle("Enable Nano-Swarm Core", value=False)
-    
-    # --- 6. الحسابات الفيزيائية (المنطق الرياضي للمبرمج) ---
-    viscosity = float(visc_f(target_pressure))
-    kro_val = float(kro_f(target_sw))
-    krw_val = float(krw_f(target_sw))
-    pc_val = float(pc_f(target_sw))
+        # ==== PVTO ====
+        p_col = find_column(pvto_df, ["pressure"])
+        mu_col = find_column(pvto_df, ["viscosity"])
 
-    # تأثير النانو (إضافة مشروعك)
-    if nano_swarm:
-        viscosity *= 0.8  # تحسين السيولة
-        kro_val *= 1.2    # تحسين تدفق الزيت
-        st.sidebar.info("🚀 Nano-Swarm Active: Viscosity Reduced & Kro Enhanced")
+        pvto_df[p_col] = clean_numeric(pvto_df[p_col])
+        pvto_df[mu_col] = clean_numeric(pvto_df[mu_col])
 
-    # --- 7. عرض النتائج الرئيسية (Metrics) ---
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Viscosity (cP)", f"{viscosity:.3f}")
-    col2.metric("Kro (Oil)", f"{kro_val:.3f}")
-    col3.metric("Krw (Water)", f"{krw_val:.3f}")
-    col4.metric("Pc (psi)", f"{pc_val:.2f}")
+        pvto_df = pvto_df.dropna().sort_values(p_col)
 
-    # --- 8. الرسوم البيانية الكاملة ---
-    st.markdown("### 📊 Reservoir Diagnostic Charts")
-    
-    tab1, tab2, tab3 = st.tabs(["Production History", "Relative Permeability", "Capillary Pressure"])
+        visc_interp = interp1d(pvto_df[p_col], pvto_df[mu_col], fill_value="extrapolate", bounds_error=False)
 
-    with tab1:
-        # رسم بيانات الإنتاج من ملف Pro
-        fig1 = go.Figure()
-        oil_p_col = find_column(pro_df, ['oil', 'prod'])
-        if oil_p_col:
-            fig1.add_trace(go.Scatter(y=pro_df[oil_p_col], name="Oil Production", line=dict(color='#00ff00', width=3)))
-            fig1.update_layout(title="Historical Oil Production Rate", template="plotly_dark", height=400)
-            st.plotly_chart(fig1, use_container_width=True)
+        # ==== REL PERM ====
+        sw = find_column(rel_perm_df, ["sw"])
+        kro = find_column(rel_perm_df, ["kro"])
+        krw = find_column(rel_perm_df, ["krw"])
 
-    with tab2:
-        # رسم منحنيات النفاذية (Kro & Krw)
-        fig2 = go.Figure()
-        sw_range = np.linspace(0.2, 0.9, 50)
-        fig2.add_trace(go.Scatter(x=sw_range, y=kro_f(sw_range), name="Kro (Oil)", line=dict(color='green')))
-        fig2.add_trace(go.Scatter(x=sw_range, y=krw_f(sw_range), name="Krw (Water)", line=dict(color='blue')))
-        fig2.update_layout(title="Relative Permeability Curves", xaxis_title="Sw", template="plotly_dark", height=400)
-        st.plotly_chart(fig2, use_container_width=True)
+        for c in [sw, kro, krw]:
+            rel_perm_df[c] = clean_numeric(rel_perm_df[c])
 
-    with tab3:
-        # رسم الضغط الشعري
-        fig3 = go.Figure()
-        fig3.add_trace(go.Scatter(x=sw_range, y=pc_f(sw_range), name="Pc", line=dict(color='red', dash='dot')))
-        fig3.update_layout(title="Capillary Pressure Curve", xaxis_title="Sw", yaxis_title="Pc (psi)", template="plotly_dark", height=400)
-        st.plotly_chart(fig3, use_container_width=True)
+        rel_perm_df = rel_perm_df.dropna().sort_values(sw)
 
-    st.success("✅ Nano-Swarm Core System is Online and Stable")
-else:
-    st.error("⚠️ فشل في تشغيل النظام. يرجى التأكد من رفع ملفات الإكسل الأربعة في المجلد الرئيسي.")
+        kro_interp = interp1d(rel_perm_df[sw], rel_perm_df[kro], fill_value="extrapolate", bounds_error=False)
+        krw_interp = interp1d(rel_perm_df[sw], rel_perm_df[krw], fill_value="extrapolate", bounds_error=False)
+
+        # ==== CAP PRESS ====
+        sw2 = find_column(cap_press_df, ["sw"])
+        pc = find_column(cap_press_df, ["pc"])
+
+        cap_press_df[sw2] = clean_numeric(cap_press_df[sw2])
+        cap_press_df[pc] = clean_numeric(cap_press_df[pc])
+
+        cap_press_df = cap_press_df.dropna().sort_values(sw2)
+
+        pc_interp = interp1d(cap_press_df[sw2], cap_press_df[pc], fill_value="extrapolate", bounds_error=False)
+
+        # ==== PRODUCTION ====
+        pro_df.columns = pro_df.iloc[0].astype(str).str.lower()
+        pro_df = pro_df[1:].reset_index(drop=True)
+
+        oil_col = find_column(pro_df, ["oil"])
+        pro_df["oil"] = clean_numeric(pro_df[oil_col])
+
+        pro_df = pro_df.dropna(subset=["oil"])
+
+        return visc_interp, kro_interp, krw_interp, pc_interp, pro_df
+
+    except Exception as e:
+        st.error(f"Data Error: {e}")
+        st.stop()
+
+
+visc_interp, kro_interp, krw_interp, pc_interp, pro_data = load_data()
+
+# ================== SIMULATION ==================
+class Reservoir:
+    def __init__(self, size=25):
+        self.size = size
+        self.sw = np.random.uniform(0.2, 0.4, (size, size))
+        self.perm = np.random.uniform(50, 200, (size, size))
+        self.nano = np.zeros((size, size))
+
+    def update(self, swarm):
+        self.nano *= 0
+        for n in swarm:
+            self.nano[n.x, n.y] += 1
+
+    def production(self, pressure, swarm):
+        self.update(swarm)
+
+        avg_sw = np.mean(self.sw)
+        avg_perm = np.mean(self.perm)
+
+        mu = float(visc_interp(pressure))
+        kro = float(kro_interp(avg_sw))
+        pc = float(pc_interp(avg_sw))
+
+        nano_effect = np.mean(self.nano)
+
+        mu *= (1 - nano_effect * 0.01)
+        kro *= (1 + nano_effect * 0.005)
+        pc *= (1 - nano_effect * 0.01)
+
+        prod = max(0, kro * avg_perm * (pressure - pc) / (mu + 1e-6))
+
+        return prod
+
+
+class Nano:
+    def __init__(self, size):
+        self.x = np.random.randint(0, size)
+        self.y = np.random.randint(0, size)
+
+    def move(self, size):
+        self.x = np.clip(self.x + random.randint(-1,1), 0, size-1)
+        self.y = np.clip(self.y + random.randint(-1,1), 0, size-1)
+
+
+# ================== STATE ==================
+if "res" not in st.session_state:
+    st.session_state.res = Reservoir()
+    st.session_state.swarm = [Nano(25) for _ in range(100)]
+    st.session_state.run = False
+    st.session_state.history = []
+
+res = st.session_state.res
+
+# ================== UI ==================
+st.title("🚀 Nano-Swarm EOR Simulator")
+
+pressure = st.slider("Pressure", 500, 3000, 1500)
+
+if st.button("▶ Start"):
+    st.session_state.run = True
+
+if st.button("⛔ Stop"):
+    st.session_state.run = False
+
+# ================== LOOP ==================
+if st.session_state.run:
+    for n in st.session_state.swarm:
+        n.move(res.size)
+
+prod = res.production(pressure, st.session_state.swarm)
+st.session_state.history.append(prod)
+
+# ================== OUTPUT ==================
+st.metric("Production", f"{prod:.2f} bbl/day")
+
+fig = go.Figure()
+fig.add_trace(go.Scatter(y=st.session_state.history, name="Production"))
+st.plotly_chart(fig, use_container_width=True)
