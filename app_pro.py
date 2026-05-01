@@ -156,31 +156,40 @@ def load_data():
         pvto_df = pvto_df.dropna(subset=['pressure', 'oil_viscosity']).sort_values('pressure')
         visc_interp = interp1d(pvto_df['pressure'], pvto_df['oil_viscosity'], fill_value="extrapolate", bounds_error=False)
 
+        # --- Flexible Column Detection Helper ---
+        def find_col(df, keywords, default_idx, file_name):
+            cols = [str(c).strip().lower() for c in df.columns]
+            for kw in keywords:
+                matches = [df.columns[i] for i, c in enumerate(cols) if kw in c]
+                if matches: return matches[0]
+            if default_idx < len(df.columns):
+                return df.columns[default_idx]
+            raise ValueError(f"Could not find suitable column in {file_name} for keywords {keywords}")
+
         # Clean and prepare Relative Permeability data
-        rel_perm_df.columns = [str(col).strip().lower() for col in rel_perm_df.columns]
-        # Flexible column detection for Relative Permeability
-        sw_col_rel = [c for c in rel_perm_df.columns if 'sw' in str(c)][0]
-        kro_col = [c for c in rel_perm_df.columns if 'kro' in str(c)][0]
-        krw_col = [c for c in rel_perm_df.columns if 'krw' in str(c)][0]
+        sw_col_rel = find_col(rel_perm_df, ['sw'], 0, "Relative Permeability")
+        kro_col = find_col(rel_perm_df, ['kro'], 1, "Relative Permeability")
+        krw_col = find_col(rel_perm_df, ['krw'], 2, "Relative Permeability")
         rel_perm_df = rel_perm_df.dropna(subset=[sw_col_rel, kro_col, krw_col]).sort_values(sw_col_rel)
         kro_interp = interp1d(rel_perm_df[sw_col_rel], rel_perm_df[kro_col], fill_value="extrapolate", bounds_error=False)
         krw_interp = interp1d(rel_perm_df[sw_col_rel], rel_perm_df[krw_col], fill_value="extrapolate", bounds_error=False)
 
         # Clean and prepare Capillary Pressure data
-        cap_press_df.columns = [str(col).strip().lower() for col in cap_press_df.columns]
-        # Flexible column detection for Capillary Pressure
-        sw_col_pc = [c for c in cap_press_df.columns if 'sw' in str(c)][0]
-        pc_col = [c for c in cap_press_df.columns if 'pc' in str(c) or 'pressure' in str(c)][0]
+        sw_col_pc = find_col(cap_press_df, ['sw'], 0, "Capillary Pressure")
+        pc_col = find_col(cap_press_df, ['pc', 'pressure'], 1, "Capillary Pressure")
         cap_press_df = cap_press_df.dropna(subset=[sw_col_pc, pc_col]).sort_values(sw_col_pc)
         pc_interp = interp1d(cap_press_df[sw_col_pc], cap_press_df[pc_col], fill_value="extrapolate", bounds_error=False)
 
         # Clean and prepare Production data
-        pro_df.columns = [str(c).strip().lower() for c in pro_df.iloc[0]]
-        pro_df = pro_df[1:].reset_index(drop=True)
+        # Check if first row is header or data
+        if 'oil' in str(pro_df.columns).lower() or 'day' in str(pro_df.columns).lower():
+            pass # Header already correctly identified
+        else:
+            pro_df.columns = [str(c).strip().lower() for c in pro_df.iloc[0]]
+            pro_df = pro_df[1:].reset_index(drop=True)
         
-        # Flexible column detection for Production Data
-        date_col = [c for c in pro_df.columns if 'day' in str(c) or 'date' in str(c) or 'time' in str(c)][0]
-        oil_col = [c for c in pro_df.columns if 'oil' in str(c)][0]
+        date_col = find_col(pro_df, ['day', 'date', 'time'], 0, "Production Data")
+        oil_col = find_col(pro_df, ['oil'], 1, "Production Data")
         
         try:
             pro_df['date'] = pd.to_datetime(pro_df[date_col], format='%d %m %Y %H %M %S', errors='coerce')
