@@ -158,14 +158,21 @@ def load_data():
 
         # Clean and prepare Relative Permeability data
         rel_perm_df.columns = [col.strip().lower() for col in rel_perm_df.columns]
-        rel_perm_df = rel_perm_df.dropna(subset=['sw', 'kro', 'krw']).sort_values('sw')
-        kro_interp = interp1d(rel_perm_df['sw'], rel_perm_df['kro'], fill_value="extrapolate", bounds_error=False)
-        krw_interp = interp1d(rel_perm_df['sw'], rel_perm_df['krw'], fill_value="extrapolate", bounds_error=False)
+        # Flexible column detection for Relative Permeability
+        sw_col_rel = [c for c in rel_perm_df.columns if 'sw' in c][0]
+        kro_col = [c for c in rel_perm_df.columns if 'kro' in c][0]
+        krw_col = [c for c in rel_perm_df.columns if 'krw' in c][0]
+        rel_perm_df = rel_perm_df.dropna(subset=[sw_col_rel, kro_col, krw_col]).sort_values(sw_col_rel)
+        kro_interp = interp1d(rel_perm_df[sw_col_rel], rel_perm_df[kro_col], fill_value="extrapolate", bounds_error=False)
+        krw_interp = interp1d(rel_perm_df[sw_col_rel], rel_perm_df[krw_col], fill_value="extrapolate", bounds_error=False)
 
         # Clean and prepare Capillary Pressure data
         cap_press_df.columns = [col.strip().lower() for col in cap_press_df.columns]
-        cap_press_df = cap_press_df.dropna(subset=['sw', 'pcow_(psi)']).sort_values('sw')
-        pc_interp = interp1d(cap_press_df['sw'], cap_press_df['pcow_(psi)'], fill_value="extrapolate", bounds_error=False)
+        # Flexible column detection for Capillary Pressure
+        sw_col_pc = [c for c in cap_press_df.columns if 'sw' in c][0]
+        pc_col = [c for c in cap_press_df.columns if 'pc' in c or 'pressure' in c][0]
+        cap_press_df = cap_press_df.dropna(subset=[sw_col_pc, pc_col]).sort_values(sw_col_pc)
+        pc_interp = interp1d(cap_press_df[sw_col_pc], cap_press_df[pc_col], fill_value="extrapolate", bounds_error=False)
 
         # Clean and prepare Production data
         pro_df.columns = pro_df.iloc[0].str.strip().str.lower()
