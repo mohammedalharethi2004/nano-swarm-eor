@@ -177,9 +177,18 @@ def load_data():
         # Clean and prepare Production data
         pro_df.columns = pro_df.iloc[0].str.strip().str.lower()
         pro_df = pro_df[1:].reset_index(drop=True)
-        pro_df['date'] = pd.to_datetime(pro_df['*day *month *year *hour *minute *second'], format='%d %m %Y %H %M %S')
-        pro_df['oil'] = pd.to_numeric(pro_df['oil'], errors='coerce')
-        pro_df = pro_df.dropna(subset=['oil'])
+        
+        # Flexible column detection for Production Data
+        date_col = [c for c in pro_df.columns if 'day' in c or 'date' in c or 'time' in c][0]
+        oil_col = [c for c in pro_df.columns if 'oil' in c][0]
+        
+        try:
+            pro_df['date'] = pd.to_datetime(pro_df[date_col], format='%d %m %Y %H %M %S', errors='coerce')
+        except:
+            pro_df['date'] = pd.to_datetime(pro_df[date_col], errors='coerce')
+            
+        pro_df['oil'] = pd.to_numeric(pro_df[oil_col], errors='coerce')
+        pro_df = pro_df.dropna(subset=['oil', 'date'])
 
         return visc_interp, kro_interp, krw_interp, pc_interp, pro_df
     except Exception as e:
