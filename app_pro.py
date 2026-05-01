@@ -157,30 +157,30 @@ def load_data():
         visc_interp = interp1d(pvto_df['pressure'], pvto_df['oil_viscosity'], fill_value="extrapolate", bounds_error=False)
 
         # Clean and prepare Relative Permeability data
-        rel_perm_df.columns = [col.strip().lower() for col in rel_perm_df.columns]
+        rel_perm_df.columns = [str(col).strip().lower() for col in rel_perm_df.columns]
         # Flexible column detection for Relative Permeability
-        sw_col_rel = [c for c in rel_perm_df.columns if 'sw' in c][0]
-        kro_col = [c for c in rel_perm_df.columns if 'kro' in c][0]
-        krw_col = [c for c in rel_perm_df.columns if 'krw' in c][0]
+        sw_col_rel = [c for c in rel_perm_df.columns if 'sw' in str(c)][0]
+        kro_col = [c for c in rel_perm_df.columns if 'kro' in str(c)][0]
+        krw_col = [c for c in rel_perm_df.columns if 'krw' in str(c)][0]
         rel_perm_df = rel_perm_df.dropna(subset=[sw_col_rel, kro_col, krw_col]).sort_values(sw_col_rel)
         kro_interp = interp1d(rel_perm_df[sw_col_rel], rel_perm_df[kro_col], fill_value="extrapolate", bounds_error=False)
         krw_interp = interp1d(rel_perm_df[sw_col_rel], rel_perm_df[krw_col], fill_value="extrapolate", bounds_error=False)
 
         # Clean and prepare Capillary Pressure data
-        cap_press_df.columns = [col.strip().lower() for col in cap_press_df.columns]
+        cap_press_df.columns = [str(col).strip().lower() for col in cap_press_df.columns]
         # Flexible column detection for Capillary Pressure
-        sw_col_pc = [c for c in cap_press_df.columns if 'sw' in c][0]
-        pc_col = [c for c in cap_press_df.columns if 'pc' in c or 'pressure' in c][0]
+        sw_col_pc = [c for c in cap_press_df.columns if 'sw' in str(c)][0]
+        pc_col = [c for c in cap_press_df.columns if 'pc' in str(c) or 'pressure' in str(c)][0]
         cap_press_df = cap_press_df.dropna(subset=[sw_col_pc, pc_col]).sort_values(sw_col_pc)
         pc_interp = interp1d(cap_press_df[sw_col_pc], cap_press_df[pc_col], fill_value="extrapolate", bounds_error=False)
 
         # Clean and prepare Production data
-        pro_df.columns = pro_df.iloc[0].str.strip().str.lower()
+        pro_df.columns = [str(c).strip().lower() for c in pro_df.iloc[0]]
         pro_df = pro_df[1:].reset_index(drop=True)
         
         # Flexible column detection for Production Data
-        date_col = [c for c in pro_df.columns if 'day' in c or 'date' in c or 'time' in c][0]
-        oil_col = [c for c in pro_df.columns if 'oil' in c][0]
+        date_col = [c for c in pro_df.columns if 'day' in str(c) or 'date' in str(c) or 'time' in str(c)][0]
+        oil_col = [c for c in pro_df.columns if 'oil' in str(c)][0]
         
         try:
             pro_df['date'] = pd.to_datetime(pro_df[date_col], format='%d %m %Y %H %M %S', errors='coerce')
