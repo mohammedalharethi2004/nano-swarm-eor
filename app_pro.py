@@ -177,7 +177,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # --- Data Loading ---
-@st.cache_data
+@st.cache_resource
 def load_data():
     try:
         # Standardized file names for GitHub compatibility
