@@ -291,8 +291,8 @@ def perform_sensitivity_analysis(base_params, param_variations):
 def calculate_cash_flow(oil_production_series, oil_price, capex, opex_per_bbl, nano_cost_per_unit, nano_injected_series):
     # Assuming oil_production_series and nano_injected_series are daily/monthly
     # Convert to annual for simplicity in this placeholder
-    annual_production = oil_production_series.resample('Y').sum() if not oil_production_series.empty else pd.Series([0])
-    annual_nano_cost = nano_injected_series.resample('Y').sum() * nano_cost_per_unit if not nano_injected_series.empty else pd.Series([0])
+    annual_production = oil_production_series.resample('A').sum() if not oil_production_series.empty else pd.Series([0])
+    annual_nano_cost = nano_injected_series.resample('A').sum() * nano_cost_per_unit if not nano_injected_series.empty else pd.Series([0])
 
     cash_flows = []
     # Initial investment (CAPEX)
@@ -711,8 +711,8 @@ with tabs[3]: # Fiscal Yield Optimization
         production_df = production_df.set_index('Date')
 
         # Get annual production for both traditional and nano-enhanced
-        annual_prod_traditional = production_df['Traditional_Oil'].resample('Y').sum()
-        annual_prod_nano = production_df['Nano_Enhanced_Oil'].resample('Y').sum()
+        annual_prod_traditional = production_df['Traditional_Oil'].resample('A').sum()
+        annual_prod_nano = production_df['Nano_Enhanced_Oil'].resample('A').sum()
 
         # Use tracked nano injection history
         if st.session_state.nano_injected_history.empty:
