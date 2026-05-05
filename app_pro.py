@@ -466,6 +466,7 @@ if "res" not in st.session_state:
     st.session_state.simulation_running = False
     st.session_state.time_step = 0
     st.session_state.production_history = pd.DataFrame(columns=["Date", "Traditional_Oil", "Nano_Enhanced_Oil"])
+    st.session_state.nano_injected_history = pd.DataFrame(columns=["Date", "Injected_Units"])
     st.session_state.log_messages = []
     st.session_state.current_pressure = 2500 # psi
     st.session_state.current_salinity = 1.0 # modifier
@@ -476,6 +477,7 @@ if "res" not in st.session_state:
     st.session_state.nano_enhanced_production_rate = st.session_state.traditional_production_rate
     st.session_state.total_oil_produced_nano = 0
     st.session_state.total_oil_produced_traditional = 0
+    st.session_state.total_nano_injected = 0
     st.session_state.nano_lift_percentage = 0.0
     st.session_state.current_date = pro_data["date"].min()
     st.session_state.total_nano_cost = 0 # For economic calculations
@@ -599,6 +601,7 @@ with st.sidebar:
         st.session_state.simulation_running = False
         st.session_state.time_step = 0
         st.session_state.production_history = pd.DataFrame(columns=["Date", "Traditional_Oil", "Nano_Enhanced_Oil"])
+        st.session_state.nano_injected_history = pd.DataFrame(columns=["Date", "Injected_Units"])
         st.session_state.log_messages = []
         st.session_state.current_pressure = 2500
         st.session_state.current_salinity = 1.0
@@ -711,13 +714,11 @@ with tabs[3]: # Fiscal Yield Optimization
         annual_prod_traditional = production_df['Traditional_Oil'].resample('Y').sum()
         annual_prod_nano = production_df['Nano_Enhanced_Oil'].resample('Y').sum()
 
-        # Assuming nano_injected_series is available (need to track this in session_state)
-        # For now, using a placeholder if not explicitly tracked
-        if 'nano_injected_history' not in st.session_state or st.session_state.nano_injected_history.empty:
-            # Create a dummy series for nano_injected if not available
+        # Use tracked nano injection history
+        if st.session_state.nano_injected_history.empty:
             nano_injected_series = pd.Series(0, index=production_df.index)
         else:
-            nano_injected_history_df = pd.DataFrame(st.session_state.nano_injected_history, columns=['Date', 'Injected_Units'])
+            nano_injected_history_df = st.session_state.nano_injected_history.copy()
             nano_injected_history_df['Date'] = pd.to_datetime(nano_injected_history_df['Date'])
             nano_injected_series = nano_injected_history_df.set_index('Date')['Injected_Units']
 
@@ -1398,6 +1399,13 @@ if st.session_state.simulation_running:
         ))
     st.session_state.total_nano_injected += st.session_state.nano_injection_rate
     st.session_state.total_nano_cost += st.session_state.nano_injection_rate * st.session_state.nano_cost_per_unit
+    
+    # Track nano injection history
+    new_injection_entry = pd.DataFrame({
+        "Date": [st.session_state.current_date],
+        "Injected_Units": [st.session_state.nano_injection_rate]
+    })
+    st.session_state.nano_injected_history = pd.concat([st.session_state.nano_injected_history, new_injection_entry], ignore_index=True)
 
     # Update nano-robots and reservoir
     active_nano = [n for n in st.session_state.nano_swarm if n.energy > 0]
