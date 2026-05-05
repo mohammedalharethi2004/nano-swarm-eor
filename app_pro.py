@@ -187,7 +187,7 @@ def load_data():
         pro_df = pd.read_excel("Pro.xlsx", skiprows=8)
 
         # Clean and prepare PVTO data
-        pvto_df.columns = [col.strip().lower().replace(\' \', \'_\') for col in pvto_df.columns]
+        pvto_df.columns = [col.strip().lower().replace(' ', '_') for col in pvto_df.columns]
         pvto_df = pvto_df.dropna(subset=[\'pressure\', \'oil_viscosity\']).sort_values(\'pressure\')
         visc_interp = interp1d(pvto_df[\'pressure\'], pvto_df[\'oil_viscosity\'], fill_value="extrapolate", bounds_error=False)
 
