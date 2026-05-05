@@ -294,8 +294,18 @@ def perform_sensitivity_analysis(base_params, param_variations):
 def calculate_cash_flow(oil_production_series, oil_price, capex, opex_per_bbl, nano_cost_per_unit, nano_injected_series):
     # Assuming oil_production_series and nano_injected_series are daily/monthly
     # Convert to annual for simplicity in this placeholder
-    annual_production = oil_production_series.resample('YE').sum() if not oil_production_series.empty else pd.Series([0])
-    annual_nano_cost = nano_injected_series.resample('YE').sum() * nano_cost_per_unit if not nano_injected_series.empty else pd.Series([0])
+    # Ensure index is datetime for resampling
+    if not oil_production_series.empty:
+        oil_production_series.index = pd.to_datetime(oil_production_series.index)
+        annual_production = oil_production_series.resample('YE').sum()
+    else:
+        annual_production = pd.Series([0])
+
+    if not nano_injected_series.empty:
+        nano_injected_series.index = pd.to_datetime(nano_injected_series.index)
+        annual_nano_cost = nano_injected_series.resample('YE').sum() * nano_cost_per_unit
+    else:
+        annual_nano_cost = pd.Series([0])
 
     cash_flows = []
     # Initial investment (CAPEX)
