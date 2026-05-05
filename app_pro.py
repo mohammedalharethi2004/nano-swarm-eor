@@ -181,10 +181,11 @@ st.markdown(f"""
 def load_data():
     try:
         # Standardized file names for GitHub compatibility
-        pvto_df = pd.read_excel("PVTO.xlsx")
-        rel_perm_df = pd.read_excel("water-oil Relative permeability.xlsx")
-        cap_press_df = pd.read_excel("capillary pressure.xlsx")
-        pro_df = pd.read_excel("Pro.xlsx", skiprows=8)
+        # Updated to match user uploads
+        pvto_df = pd.read_excel("PVTO2.xlsx")
+        rel_perm_df = pd.read_excel("water-oilRelativepermeability(3).xlsx")
+        cap_press_df = pd.read_excel("capillarypressure(4).xlsx")
+        pro_df = pd.read_excel("Pro(3).xlsx", header=None)
 
         # Clean and prepare PVTO data
         pvto_df.columns = [col.strip().lower().replace(' ', '_') for col in pvto_df.columns]
@@ -219,15 +220,17 @@ def load_data():
 
         # Clean and prepare Production data
         try:
-            if not any(k in str(pro_df.columns).lower() for k in ['oil', 'day', 'date']):
-                pro_df.columns = [str(c).strip().lower() for c in pro_df.iloc[0]]
-                pro_df = pro_df[1:].reset_index(drop=True)
-            
-            date_col = find_col(pro_df, ['day', 'date', 'time'], 0, "Production Data")
-            oil_col = find_col(pro_df, ['oil'], 1, "Production Data")
-            
-            pro_df['date'] = pd.to_datetime(pro_df[date_col], errors='coerce')
-            pro_df['oil'] = pd.to_numeric(pro_df[oil_col], errors='coerce')
+            # Custom parsing for Pro(3).xlsx date format
+            def parse_pro_date(date_str):
+                try:
+                    parts = str(date_str).split()
+                    day, month, year = int(parts[0]), int(parts[1]), int(parts[2])
+                    return pd.Timestamp(year=year, month=month, day=day)
+                except:
+                    return pd.NaT
+
+            pro_df['date'] = pro_df[0].apply(parse_pro_date)
+            pro_df['oil'] = pd.to_numeric(pro_df[3], errors='coerce')
             pro_df = pro_df.dropna(subset=['oil', 'date'])
             
             if pro_df.empty: raise ValueError("Production data is empty after cleaning")
@@ -393,8 +396,6 @@ class NanoRobot:
         if self.energy <= 0:
             self.color = COLOR_NANO_CRITICAL
             self.state = "inactive"
-
-
 
         self.path.append((self.x, self.y))
         if len(self.path) > 10: # Keep trail short
@@ -665,67 +666,22 @@ tabs = st.tabs([
 ])
 
 with tabs[0]: # Dashboard
-    st.header("\nOperational Dashboard")
-
-with tabs[2]: # Predictive Recovery Analytics
-    st.header("\nPredictive Recovery Analytics")
+    st.header("\nOperational Dashboard / لوحة التحكم التشغيلية")
     st.markdown("""
     <div class="guide-section">
-        <h3 style="color:var(--primary-color);">Predictive Recovery Analytics / تحليلات الاستخلاص التنبؤية</h3>
-        <p>This section provides advanced forecasting models to predict future oil production, analyze decline curves, and quantify uncertainty. It helps in understanding the long-term impact of nano-swarm deployment.</p>
-        <p>يقدم هذا القسم نماذج تنبؤ متقدمة للتنبؤ بإنتاج النفط المستقبلي، وتحليل منحنيات الانحدار، وتحديد عدم اليقين. يساعد في فهم التأثير طويل المدى لنشر سرب النانو.</p>
+        <h3 style="color:var(--primary-color);">Operational Dashboard / لوحة التحكم التشغيلية</h3>
+        <p>This dashboard provides a high-level overview of the entire Nano-Swarm EOR operation. It tracks key performance indicators (KPIs) such as production rates, nano-swarm health, and economic metrics in real-time, allowing for rapid assessment and decision-making.</p>
+        <p>توفر لوحة التحكم هذه نظرة عامة رفيعة المستوى على عملية الاستخلاص المعزز للنفط باستخدام أسراب النانو بالكامل. وهي تتبع مؤشرات الأداء الرئيسية (KPIs) مثل معدلات الإنتاج، وصحة سرب النانو، والمقاييس الاقتصادية في الوقت الفعلي، مما يسمح بالتقييم السريع واتخاذ القرار.</p>
     </div>
     """, unsafe_allow_html=True)
 
-    st.subheader("\nProduction Forecasting / التنبؤ بالإنتاج")
-    st.write("Here you can see the projected oil production with and without nano-EOR, along with confidence intervals.")
-    # Placeholder for Production Forecast Plot
-    st.info("Placeholder for Production Forecasting Plot (e.g., Exponential/Hyperbolic Decline Curve with Confidence Band)")
-
-    st.subheader("\nSensitivity Analysis / تحليل الحساسية")
-    st.write("This analysis shows how different reservoir parameters (pressure, salinity, viscosity) impact the overall oil recovery.")
-    # Placeholder for Sensitivity Analysis Plot (Tornado/Spider Chart)
-    st.info("Placeholder for Sensitivity Analysis Plot (e.g., Tornado or Spider Chart showing impact of parameters)")
-
-    st.subheader("\nSmart Alerts & Recommendations / تنبيهات وتوصيات ذكية")
-    st.write("Real-time alerts and AI-driven recommendations based on predictive models.")
-    # Placeholder for Smart Alerts
-    st.info("Placeholder for AI-driven alerts and recommendations.")
-
-with tabs[3]: # Fiscal Yield Optimization
-    st.header("\nFiscal Yield Optimization")
-    st.markdown("""
-    <div class="guide-section">
-        <h3 style="color:var(--primary-color);">Fiscal Yield Optimization / تحسين العائد المالي</h3>
-        <p>This section provides a comprehensive financial analysis of the nano-EOR project, including Net Present Value (NPV), Return on Investment (ROI), Cash Flow projections, Capital Expenditures (CAPEX), and Operational Expenditures (OPEX). It also includes sensitivity analysis to oil price fluctuations.</p>
-        <p>يقدم هذا القسم تحليلاً مالياً شاملاً لمشروع الاستخلاص المعزز بالنانو، بما في ذلك صافي القيمة الحالية (NPV)، والعائد على الاستثمار (ROI)، وتوقعات التدفق النقدي، والنفقات الرأسمالية (CAPEX)، والنفقات التشغيلية (OPEX). كما يتضمن تحليل الحساسية لتقلبات أسعار النفط.</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.subheader("\nNet Present Value (NPV) & Return on Investment (ROI) / صافي القيمة الحالية والعائد على الاستثمار")
-    st.write("Detailed calculations and visualizations for project profitability.")
-    # Placeholder for NPV & ROI Metrics and Charts
-    # Calculate financial metrics
     if not st.session_state.production_history.empty:
-        # Ensure 'Date' column is datetime and set as index for resample
-        production_df = st.session_state.production_history.copy()
-        production_df['Date'] = pd.to_datetime(production_df['Date'])
-        production_df = production_df.set_index('Date')
+        # Economic Calculations for Dashboard
+        annual_prod_nano = st.session_state.production_history.set_index('Date')['Nano_Enhanced_Oil']
+        annual_prod_traditional = st.session_state.production_history.set_index('Date')['Traditional_Oil']
+        nano_injected_series = st.session_state.nano_injected_history.set_index('Date')['Injected_Units'] if not st.session_state.nano_injected_history.empty else pd.Series()
 
-        # Get annual production for both traditional and nano-enhanced
-        annual_prod_traditional = production_df['Traditional_Oil'].resample('YE').sum()
-        annual_prod_nano = production_df['Nano_Enhanced_Oil'].resample('YE').sum()
-
-        # Use tracked nano injection history
-        if st.session_state.nano_injected_history.empty:
-            nano_injected_series = pd.Series(0, index=production_df.index)
-        else:
-            nano_injected_history_df = st.session_state.nano_injected_history.copy()
-            nano_injected_history_df['Date'] = pd.to_datetime(nano_injected_history_df['Date'])
-            nano_injected_series = nano_injected_history_df.set_index('Date')['Injected_Units']
-
-        # Calculate cash flows for nano-enhanced project
-        cash_flows_nano = calculate_cash_flow(
+        cf_nano = calculate_cash_flow(
             annual_prod_nano,
             st.session_state.oil_price_per_bbl,
             st.session_state.capex_nano,
@@ -733,152 +689,132 @@ with tabs[3]: # Fiscal Yield Optimization
             st.session_state.nano_cost_per_unit,
             nano_injected_series
         )
+        npv_nano = calculate_npv(cf_nano, DISCOUNT_RATE)
+        roi_nano = calculate_roi(st.session_state.capex_nano, sum(cf_nano[1:])) * 100
 
-        # Calculate cash flows for traditional project (for comparison)
-        cash_flows_traditional = calculate_cash_flow(
+        cf_traditional = calculate_cash_flow(
             annual_prod_traditional,
             st.session_state.oil_price_per_bbl,
             st.session_state.capex_traditional,
             st.session_state.opex_traditional_per_bbl,
-            0, # No nano cost for traditional
-            pd.Series() # No nano injected for traditional
+            0,
+            pd.Series()
         )
+        npv_traditional = calculate_npv(cf_traditional, DISCOUNT_RATE)
+        roi_traditional = calculate_roi(st.session_state.capex_traditional, sum(cf_traditional[1:])) * 100
 
-        npv_nano = calculate_npv(cash_flows_nano, DISCOUNT_RATE)
-        npv_traditional = calculate_npv(cash_flows_traditional, DISCOUNT_RATE)
+        col_npv, col_roi = st.columns(2)
+        with col_npv:
+            fig_npv = go.Figure(go.Indicator(
+                mode = "number+delta",
+                value = npv_nano,
+                delta = {'reference': npv_traditional, 'relative': True, 'position': "top"},
+                title = {"text": "Project NPV (Nano-EOR vs Traditional)"},
+                number = {'prefix': "$", 'font': {'color': COLOR_PRIMARY}},
+                domain = {'x': [0, 1], 'y': [0, 1]}
+            ))
+            fig_npv.update_layout(paper_bgcolor=COLOR_BG_DARK, font=dict(color=COLOR_TEXT_LIGHT))
+            st.plotly_chart(fig_npv, use_container_width=True)
 
-        total_return_nano = sum(cf for cf in cash_flows_nano if cf > 0)
-        total_return_traditional = sum(cf for cf in cash_flows_traditional if cf > 0)
+        with col_roi:
+            fig_roi = go.Figure(go.Indicator(
+                mode = "number+delta",
+                value = roi_nano,
+                delta = {'reference': roi_traditional, 'relative': True, 'position': "top"},
+                title = {"text": "Project ROI (%)"},
+                number = {'suffix': "%", 'font': {'color': COLOR_PRIMARY}},
+                domain = {'x': [0, 1], 'y': [0, 1]}
+            ))
+            fig_roi.update_layout(paper_bgcolor=COLOR_BG_DARK, font=dict(color=COLOR_TEXT_LIGHT))
+            st.plotly_chart(fig_roi, use_container_width=True)
 
-        roi_nano = calculate_roi(st.session_state.capex_nano, total_return_nano)
-        roi_traditional = calculate_roi(st.session_state.capex_traditional, total_return_traditional)
+        st.markdown("--- ")
 
-        st.markdown(f"""
-        <div class="card">
-            <h4 style="color:var(--primary-color);">Net Present Value (NPV)</h4>
-            <p style="font-size:1.5em;">Nano-EOR: <span style="color:{COLOR_PRIMARY};">${npv_nano:,.2f}</span></p>
-            <p style="font-size:1.5em;">Traditional: <span style="color:{COLOR_SECONDARY};">${npv_traditional:,.2f}</span></p>
-        </div>
-        <div class="card">
-            <h4 style="color:var(--primary-color);">Return on Investment (ROI)</h4>
-            <p style="font-size:1.5em;">Nano-EOR: <span style="color:{COLOR_PRIMARY};">{roi_nano:.2%}</span></p>
-            <p style="font-size:1.5em;">Traditional: <span style="color:{COLOR_SECONDARY};">{roi_traditional:.2%}</span></p>
-        </div>
-        """, unsafe_allow_html=True)
+        col_costs, col_sens = st.columns(2)
+        with col_costs:
+            st.subheader("\nCost Comparison / مقارنة التكاليف")
+            st.write("Compare the capital and operational expenses of Nano-EOR vs. Traditional methods.")
 
-        # Cash Flow Chart
-        st.subheader("\nCash Flow Projections / توقعات التدفق النقدي")
-        st.write("Visualize the project's cash inflows and outflows over its lifetime.")
-        
-        fig_cf = go.Figure()
-        fig_cf.add_trace(go.Bar(
-            x=list(range(len(cash_flows_nano))),
-            y=cash_flows_nano,
-            name='Nano-EOR Cash Flow',
-            marker_color=COLOR_PRIMARY
-        ))
-        fig_cf.add_trace(go.Bar(
-            x=list(range(len(cash_flows_traditional))),
-            y=cash_flows_traditional,
-            name='Traditional Cash Flow',
-            marker_color=COLOR_SECONDARY
-        ))
-        fig_cf.update_layout(
-            title='Annual Cash Flow Comparison',
-            xaxis_title='Year',
-            yaxis_title='Cash Flow ($)',
-            template='plotly_dark',
-            hovermode='x unified',
-            plot_bgcolor=COLOR_BG_MEDIUM,
-            paper_bgcolor=COLOR_BG_DARK,
-            font=dict(color=COLOR_TEXT_LIGHT),
-            title_font_color=COLOR_PRIMARY
-        )
-        st.plotly_chart(fig_cf, use_container_width=True)
-
-        # Cost Analysis (CAPEX & OPEX)
-        st.subheader("\nCost Analysis (CAPEX & OPEX) / تحليل التكاليف (النفقات الرأسمالية والتشغيلية)")
-        st.write("Breakdown of capital and operational expenditures for both traditional and nano-EOR methods.")
-
-        fig_costs = go.Figure()
-        fig_costs.add_trace(go.Bar(
-            x=['CAPEX', 'OPEX (per bbl)'],
-            y=[st.session_state.capex_nano, st.session_state.opex_nano_per_bbl],
-            name='Nano-EOR Costs',
-            marker_color=COLOR_PRIMARY
-        ))
-        fig_costs.add_trace(go.Bar(
-            x=['CAPEX', 'OPEX (per bbl)'],
-            y=[st.session_state.capex_traditional, st.session_state.opex_traditional_per_bbl],
-            name='Traditional Costs',
-            marker_color=COLOR_SECONDARY
-        ))
-        fig_costs.update_layout(
-            title='CAPEX vs OPEX Comparison',
-            yaxis_title='Amount ($)',
-            template='plotly_dark',
-            plot_bgcolor=COLOR_BG_MEDIUM,
-            paper_bgcolor=COLOR_BG_DARK,
-            font=dict(color=COLOR_TEXT_LIGHT),
-            title_font_color=COLOR_PRIMARY
-        )
-        st.plotly_chart(fig_costs, use_container_width=True)
-
-        # Oil Price Sensitivity
-        st.subheader("\nOil Price Sensitivity / حساسية أسعار النفط")
-        st.write("Assess the project's financial viability under different oil price scenarios.")
-
-        price_scenarios = np.arange(st.session_state.oil_price_per_bbl * 0.7, st.session_state.oil_price_per_bbl * 1.3, 5)
-        npv_sensitivity_nano = []
-        npv_sensitivity_traditional = []
-
-        for price in price_scenarios:
-            cf_nano_sens = calculate_cash_flow(
-                annual_prod_nano,
-                price,
-                st.session_state.capex_nano,
-                st.session_state.opex_nano_per_bbl,
-                st.session_state.nano_cost_per_unit,
-                nano_injected_series
+            fig_costs = go.Figure()
+            fig_costs.add_trace(go.Bar(
+                x=['CAPEX', 'OPEX (per bbl)'],
+                y=[st.session_state.capex_nano, st.session_state.opex_nano_per_bbl],
+                name='Nano-EOR Costs',
+                marker_color=COLOR_PRIMARY
+            ))
+            fig_costs.add_trace(go.Bar(
+                x=['CAPEX', 'OPEX (per bbl)'],
+                y=[st.session_state.capex_traditional, st.session_state.opex_traditional_per_bbl],
+                name='Traditional Costs',
+                marker_color=COLOR_SECONDARY
+            ))
+            fig_costs.update_layout(
+                title='CAPEX vs OPEX Comparison',
+                yaxis_title='Amount ($)',
+                template='plotly_dark',
+                plot_bgcolor=COLOR_BG_MEDIUM,
+                paper_bgcolor=COLOR_BG_DARK,
+                font=dict(color=COLOR_TEXT_LIGHT),
+                title_font_color=COLOR_PRIMARY
             )
-            npv_sensitivity_nano.append(calculate_npv(cf_nano_sens, DISCOUNT_RATE))
+            st.plotly_chart(fig_costs, use_container_width=True)
 
-            cf_traditional_sens = calculate_cash_flow(
-                annual_prod_traditional,
-                price,
-                st.session_state.capex_traditional,
-                st.session_state.opex_traditional_per_bbl,
-                0,
-                pd.Series()
+        with col_sens:
+            # Oil Price Sensitivity
+            st.subheader("\nOil Price Sensitivity / حساسية أسعار النفط")
+            st.write("Assess the project's financial viability under different oil price scenarios.")
+
+            price_scenarios = np.arange(st.session_state.oil_price_per_bbl * 0.7, st.session_state.oil_price_per_bbl * 1.3, 5)
+            npv_sensitivity_nano = []
+            npv_sensitivity_traditional = []
+
+            for price in price_scenarios:
+                cf_nano_sens = calculate_cash_flow(
+                    annual_prod_nano,
+                    price,
+                    st.session_state.capex_nano,
+                    st.session_state.opex_nano_per_bbl,
+                    st.session_state.nano_cost_per_unit,
+                    nano_injected_series
+                )
+                npv_sensitivity_nano.append(calculate_npv(cf_nano_sens, DISCOUNT_RATE))
+
+                cf_traditional_sens = calculate_cash_flow(
+                    annual_prod_traditional,
+                    price,
+                    st.session_state.capex_traditional,
+                    st.session_state.opex_traditional_per_bbl,
+                    0,
+                    pd.Series()
+                )
+                npv_sensitivity_traditional.append(calculate_npv(cf_traditional_sens, DISCOUNT_RATE))
+
+            fig_sens = go.Figure()
+            fig_sens.add_trace(go.Scatter(
+                x=price_scenarios,
+                y=npv_sensitivity_nano,
+                mode='lines+markers',
+                name='Nano-EOR NPV',
+                line=dict(color=COLOR_PRIMARY)
+            ))
+            fig_sens.add_trace(go.Scatter(
+                x=price_scenarios,
+                y=npv_sensitivity_traditional,
+                mode='lines+markers',
+                name='Traditional NPV',
+                line=dict(color=COLOR_SECONDARY)
+            ))
+            fig_sens.update_layout(
+                title='NPV Sensitivity to Oil Price',
+                xaxis_title='Oil Price ($/bbl)',
+                yaxis_title='NPV ($)',
+                template='plotly_dark',
+                plot_bgcolor=COLOR_BG_MEDIUM,
+                paper_bgcolor=COLOR_BG_DARK,
+                font=dict(color=COLOR_TEXT_LIGHT),
+                title_font_color=COLOR_PRIMARY
             )
-            npv_sensitivity_traditional.append(calculate_npv(cf_traditional_sens, DISCOUNT_RATE))
-
-        fig_sens = go.Figure()
-        fig_sens.add_trace(go.Scatter(
-            x=price_scenarios,
-            y=npv_sensitivity_nano,
-            mode='lines+markers',
-            name='Nano-EOR NPV',
-            line=dict(color=COLOR_PRIMARY)
-        ))
-        fig_sens.add_trace(go.Scatter(
-            x=price_scenarios,
-            y=npv_sensitivity_traditional,
-            mode='lines+markers',
-            name='Traditional NPV',
-            line=dict(color=COLOR_SECONDARY)
-        ))
-        fig_sens.update_layout(
-            title='NPV Sensitivity to Oil Price',
-            xaxis_title='Oil Price ($/bbl)',
-            yaxis_title='NPV ($)',
-            template='plotly_dark',
-            plot_bgcolor=COLOR_BG_MEDIUM,
-            paper_bgcolor=COLOR_BG_DARK,
-            font=dict(color=COLOR_TEXT_LIGHT),
-            title_font_color=COLOR_PRIMARY
-        )
-        st.plotly_chart(fig_sens, use_container_width=True)
+            st.plotly_chart(fig_sens, use_container_width=True)
 
     else:
         st.warning("Run the simulation first to generate financial data.")
@@ -898,55 +834,6 @@ with tabs[3]: # Fiscal Yield Optimization
     # Placeholder for Oil Price Sensitivity Analysis
     st.info("Placeholder for Oil Price Sensitivity Analysis (e.g., Tornado chart for oil price impact).")
 
-with tabs[4]: # Geospatial Asset Surveillance
-    st.header("\nGeospatial Asset Surveillance / مراقبة الأصول الجغرافية المكانية")
-    st.markdown("""
-    <div class="guide-section">
-        <h3 style="color:var(--primary-color);">Geospatial Asset Surveillance / مراقبة الأصول الجغرافية المكانية</h3>
-        <p>This section provides a comprehensive geospatial view of the reservoir, including well locations, nano-swarm distribution, and real-time operational data overlaid on a 2D/3D map. It allows for precise monitoring and strategic deployment of the nano-swarm.</p>
-        <p>يقدم هذا القسم عرضاً جغرافياً مكانياً شاملاً للمكمن، بما في ذلك مواقع الآبار، وتوزيع سرب النانو، وبيانات التشغيل في الوقت الفعلي المعروضة على خريطة ثنائية/ثلاثية الأبعاد. يسمح ذلك بالمراقبة الدقيقة والنشر الاستراتيجي لسرب النانو.</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.subheader("\nReservoir Map & Well Locations / خريطة المكمن ومواقع الآبار")
-    st.write("Visualize the reservoir layout, injection wells, and production wells.")
-    # Placeholder for 2D/3D Reservoir Map
-    st.info("Placeholder for 2D/3D interactive map showing reservoir, wells, and nano-swarm distribution.")
-
-    st.subheader("\nNano-Swarm Distribution & Movement / توزيع وحركة سرب النانو")
-    st.write("Track the real-time movement and concentration of the nano-swarm within the reservoir.")
-    # Placeholder for Nano-Swarm Heatmap/Density Map
-    st.info("Placeholder for heatmap or density map showing nano-swarm concentration.")
-
-    st.subheader("\nReal-time Sensor Data Overlay / تراكب بيانات الحساسات في الوقت الفعلي")
-    st.write("Overlay critical sensor data (pressure, temperature, saturation) on the geospatial map.")
-    # Placeholder for Sensor Data Overlay
-    st.info("Placeholder for real-time sensor data visualization on the map.")
-
-with tabs[5]: # Operational Protocols
-    st.header("\nOperational Protocols / بروتوكولات التشغيل")
-    st.markdown("""
-    <div class="guide-section">
-        <h3 style="color:var(--primary-color);">Operational Protocols / بروتوكولات التشغيل</h3>
-        <p>This section details the standard operating procedures (SOPs) for nano-swarm deployment, safety protocols, and real-time alert management. It ensures efficient and secure field operations.</p>
-        <p>يفصل هذا القسم إجراءات التشغيل القياسية (SOPs) لنشر سرب النانو، وبروتوكولات السلامة، وإدارة التنبيهات في الوقت الفعلي. يضمن عمليات حقلية فعالة وآمنة.</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.subheader("\nStandard Operating Procedures (SOPs) / إجراءات التشغيل القياسية")
-    st.write("Guidelines for effective and safe nano-swarm injection and management.")
-    # Placeholder for SOPs
-    st.info("Placeholder for detailed SOPs for nano-swarm deployment.")
-
-    st.subheader("\nSafety & Environmental Protocols / بروتوكولات السلامة والبيئة")
-    st.write("Ensuring compliance with safety regulations and minimizing environmental impact.")
-    # Placeholder for Safety Protocols
-    st.info("Placeholder for safety and environmental guidelines.")
-
-    st.subheader("\nReal-time Alert Management / إدارة التنبيهات في الوقت الفعلي")
-    st.write("System for handling critical alerts and notifications from the nano-swarm and reservoir sensors.")
-    # Placeholder for Alert Management Interface
-    st.info("Placeholder for real-time alert dashboard and management tools.")
     col1, col2, col3 = st.columns(3)
     with col1:
         st.markdown(f"""
@@ -1081,9 +968,6 @@ with tabs[1]: # Subsurface Digital Twin
                     line=dict(color=nano.color, width=1),
                     name=f'Nano Trail {nano.id}'
                 ))
-
-
-
         
         # Production Well
         prod_x, prod_y = st.session_state.production_well_pos
@@ -1247,8 +1131,14 @@ with tabs[3]: # Fiscal Yield Optimization
     st.info("Detailed cash flow projections will be implemented here.")
 
 with tabs[4]: # Geospatial Asset Surveillance
-    st.header("\nGeospatial Asset Surveillance")
-    st.markdown("Real-time monitoring of well locations and nano-swarm distribution.")
+    st.header("\nGeospatial Asset Surveillance / مراقبة الأصول الجغرافية المكانية")
+    st.markdown("""
+    <div class="guide-section">
+        <h3 style="color:var(--primary-color);">Geospatial Asset Surveillance / مراقبة الأصول الجغرافية المكانية</h3>
+        <p>This section provides a comprehensive geospatial view of the reservoir, including well locations, nano-swarm distribution, and real-time operational data overlaid on a 2D/3D map. It allows for precise monitoring and strategic deployment of the nano-swarm.</p>
+        <p>يقدم هذا القسم عرضاً جغرافياً مكانياً شاملاً للمكمن، بما في ذلك مواقع الآبار، وتوزيع سرب النانو، وبيانات التشغيل في الوقت الفعلي المعروضة على خريطة ثنائية/ثلاثية الأبعاد. يسمح ذلك بالمراقبة الدقيقة والنشر الاستراتيجي لسرب النانو.</p>
+    </div>
+    """, unsafe_allow_html=True)
 
     # 2D Field Map
     fig_map = go.Figure()
@@ -1301,8 +1191,14 @@ with tabs[4]: # Geospatial Asset Surveillance
     st.plotly_chart(fig_map, use_container_width=True)
 
 with tabs[5]: # Operational Protocols
-    st.header("\nOperational Protocols & Smart Alerts")
-    st.markdown("Guidelines and automated alerts for optimal nano-swarm deployment.")
+    st.header("\nOperational Protocols / بروتوكولات التشغيل")
+    st.markdown("""
+    <div class="guide-section">
+        <h3 style="color:var(--primary-color);">Operational Protocols / بروتوكولات التشغيل</h3>
+        <p>This section details the standard operating procedures (SOPs) for nano-swarm deployment, safety protocols, and real-time alert management. It ensures efficient and secure field operations.</p>
+        <p>يفصل هذا القسم إجراءات التشغيل القياسية (SOPs) لنشر سرب النانو، وبروتوكولات السلامة، وإدارة التنبيهات في الوقت الفعلي. يضمن عمليات حقلية فعالة وآمنة.</p>
+    </div>
+    """, unsafe_allow_html=True)
 
     st.subheader("\nSmart Alert System (Placeholder)")
     st.info("Automated alerts for critical reservoir conditions or nano-swarm status will appear here.")
@@ -1314,7 +1210,11 @@ with tabs[5]: # Operational Protocols
     - **Phase 3: Targeted Intervention**: Use manual control to guide nano-swarms to bypass tight zones or target high residual oil saturation areas.
     """)
 
-with tabs[6]: # Project Guide / دليل المشروع
+with tabs[6]: # Mission Control
+    st.header("\nMission Control")
+    st.info("Advanced real-time command center for the nano-swarm operations.")
+
+with tabs[7]: # Project Guide / دليل المشروع
     st.header("\nProject Guide / دليل المشروع")
     st.markdown("""
     <div class="guide-section">
@@ -1381,7 +1281,7 @@ with tabs[6]: # Project Guide / دليل المشروع
         <p>لتشغيل منصة المحاكاة المتقدمة هذه، اتبع الخطوات التالية:</p>
         <ol>
             <li>**Install Streamlit**: If you don't have Streamlit installed, open your terminal or command prompt and run: <code style="color:var(--primary-color);">pip install streamlit pandas numpy plotly scipy openpyxl</code></li>
-            <li>**Place Excel Files**: Ensure the four Excel data files (<code style="color:var(--primary-color);">PVTO.xlsx</code>, <code style="color:var(--primary-color);">water-oil Relative permeability.xlsx</code>, <code style="color:var(--primary-color);">capillary pressure.xlsx</code>, <code style="color:var(--primary-color);">Pro.xlsx</code>) are in the **same directory** as this Python script.</li>
+            <li>**Place Excel Files**: Ensure the four Excel data files (<code style="color:var(--primary-color);">PVTO2.xlsx</code>, <code style="color:var(--primary-color);">water-oilRelativepermeability(3).xlsx</code>, <code style="color:var(--primary-color);">capillarypressure(4).xlsx</code>, <code style="color:var(--primary-color);">Pro(3).xlsx</code>) are in the **same directory** as this Python script.</li>
             <li>**Run the Application**: Open your terminal or command prompt, navigate to the directory where you saved the script and Excel files, and run: <code style="color:var(--primary-color);">streamlit run nano_swarm_eor_ultimate_masterpiece.py</code></li>
             <li>**Enjoy the Simulation**: Your web browser will automatically open, displaying the Nano-Swarm EOR platform.</li>
         </ol>
@@ -1426,10 +1326,10 @@ if st.session_state.simulation_running:
     _, _, oil_viscosity_prod, kro_prod, _, _, _ = st.session_state.res.get_local_properties(prod_x, prod_y, st.session_state.current_pressure)
     
     # Darcy's Law simplified: Q = (k * A * delta_P) / (mu * L)
-    # Assuming k, A, delta_P, L are constant for simplicity, focus on mu and kro
-    # Higher kro, lower mu -> higher production
-    nano_effect_factor = (kro_prod / oil_viscosity_prod) / (kro_interp(0.3) / visc_interp(st.session_state.current_pressure)) # Compare to a baseline
-    current_nano_enhanced_production = current_traditional_production * (1 + nano_effect_factor * 0.5) # Example enhancement
+    # Assuming k, A, delta_P, L are combined into a single factor for this simplified simulation
+    # The nano-effect is primarily through viscosity reduction and kro enhancement
+    enhancement_factor = (kro_prod / oil_viscosity_prod) / (kro_interp(st.session_state.res.sw_grid[prod_x, prod_y]) / visc_interp(st.session_state.current_pressure))
+    current_nano_enhanced_production = current_traditional_production * enhancement_factor
     current_nano_enhanced_production = max(current_traditional_production, current_nano_enhanced_production)
 
     st.session_state.nano_enhanced_production_rate = current_nano_enhanced_production
