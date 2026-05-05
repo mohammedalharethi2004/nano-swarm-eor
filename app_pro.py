@@ -31,7 +31,7 @@ COLOR_OIL_DEPLETED = "#4a4a4a" # Dark grey for depleted areas
 # --- Cinematic & Futuristic Styling ---
 st.markdown(f"""
 <style>
-    @import url(\'https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto+Mono:wght@300;400;700&display=swap\');
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto+Mono:wght@300;400;700&display=swap');
 
     :root {{
         --primary-color: {COLOR_PRIMARY};
@@ -46,7 +46,7 @@ st.markdown(f"""
     body {{
         background-color: var(--background-dark);
         color: var(--text-light);
-        font-family: \'Roboto Mono\', monospace;
+        font-family: 'Roboto Mono', monospace;
     }}
 
     .stApp {{
@@ -54,7 +54,7 @@ st.markdown(f"""
     }}
 
     h1, h2, h3, h4, h5, h6 {{
-        font-family: \'Orbitron\', sans-serif;
+        font-family: 'Orbitron', sans-serif;
         color: var(--primary-color);
         text-shadow: 0 0 5px rgba(0,255,204,0.5);
     }}
@@ -104,7 +104,7 @@ st.markdown(f"""
         background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        font-family: \'Orbitron\', sans-serif;
+        font-family: 'Orbitron', sans-serif;
         font-size: 4.5em;
         font-weight: 700;
         text-align: center;
@@ -135,7 +135,7 @@ st.markdown(f"""
     }}
 
     .team-member {{
-        font-family: \'Orbitron\', sans-serif;
+        font-family: 'Orbitron', sans-serif;
         font-size: 1.2em;
         color: var(--secondary-color);
         margin: 10px 0;
@@ -162,7 +162,7 @@ st.markdown(f"""
         border: none;
         padding: 10px 20px;
         border-radius: 5px;
-        font-family: \'Orbitron\', sans-serif;
+        font-family: 'Orbitron', sans-serif;
         font-weight: bold;
         transition: all 0.3s ease;
     }}
@@ -188,8 +188,8 @@ def load_data():
 
         # Clean and prepare PVTO data
         pvto_df.columns = [col.strip().lower().replace(' ', '_') for col in pvto_df.columns]
-        pvto_df = pvto_df.dropna(subset=[\'pressure\', \'oil_viscosity\']).sort_values(\'pressure\')
-        visc_interp = interp1d(pvto_df[\'pressure\'], pvto_df[\'oil_viscosity\'], fill_value="extrapolate", bounds_error=False)
+        pvto_df = pvto_df.dropna(subset=['pressure', 'oil_viscosity']).sort_values('pressure')
+        visc_interp = interp1d(pvto_df['pressure'], pvto_df['oil_viscosity'], fill_value="extrapolate", bounds_error=False)
 
         # --- Flexible Column Detection Helper ---
         def find_col(df, keywords, default_idx, file_name):
@@ -203,39 +203,39 @@ def load_data():
 
         # Clean and prepare Relative Permeability data
         rel_perm_df.columns = [str(col).strip().lower() for col in rel_perm_df.columns]
-        sw_col_rel = find_col(rel_perm_df, [\'sw\'], 0, "Relative Permeability")
-        kro_col = find_col(rel_perm_df, [\'kro\'], 1, "Relative Permeability")
-        krw_col = find_col(rel_perm_df, [\'krw\'], 2, "Relative Permeability")
+        sw_col_rel = find_col(rel_perm_df, ['sw'], 0, "Relative Permeability")
+        kro_col = find_col(rel_perm_df, ['kro'], 1, "Relative Permeability")
+        krw_col = find_col(rel_perm_df, ['krw'], 2, "Relative Permeability")
         rel_perm_df = rel_perm_df.dropna(subset=[sw_col_rel, kro_col, krw_col]).sort_values(sw_col_rel)
         kro_interp = interp1d(rel_perm_df[sw_col_rel], rel_perm_df[kro_col], fill_value="extrapolate", bounds_error=False)
         krw_interp = interp1d(rel_perm_df[sw_col_rel], rel_perm_df[krw_col], fill_value="extrapolate", bounds_error=False)
 
         # Clean and prepare Capillary Pressure data
         cap_press_df.columns = [str(col).strip().lower() for col in cap_press_df.columns]
-        sw_col_pc = find_col(cap_press_df, [\'sw\'], 0, "Capillary Pressure")
-        pc_col = find_col(cap_press_df, [\'pc\', \'pressure\'], 1, "Capillary Pressure")
+        sw_col_pc = find_col(cap_press_df, ['sw'], 0, "Capillary Pressure")
+        pc_col = find_col(cap_press_df, ['pc', 'pressure'], 1, "Capillary Pressure")
         cap_press_df = cap_press_df.dropna(subset=[sw_col_pc, pc_col]).sort_values(sw_col_pc)
         pc_interp = interp1d(cap_press_df[sw_col_pc], cap_press_df[pc_col], fill_value="extrapolate", bounds_error=False)
 
         # Clean and prepare Production data
         try:
-            if not any(k in str(pro_df.columns).lower() for k in [\'oil\', \'day\', \'date\']):
+            if not any(k in str(pro_df.columns).lower() for k in ['oil', 'day', 'date']):
                 pro_df.columns = [str(c).strip().lower() for c in pro_df.iloc[0]]
                 pro_df = pro_df[1:].reset_index(drop=True)
             
-            date_col = find_col(pro_df, [\'day\', \'date\', \'time\'], 0, "Production Data")
-            oil_col = find_col(pro_df, [\'oil\'], 1, "Production Data")
+            date_col = find_col(pro_df, ['day', 'date', 'time'], 0, "Production Data")
+            oil_col = find_col(pro_df, ['oil'], 1, "Production Data")
             
-            pro_df[\'date\'] = pd.to_datetime(pro_df[date_col], errors=\'coerce\')
-            pro_df[\'oil\'] = pd.to_numeric(pro_df[oil_col], errors=\'coerce\')
-            pro_df = pro_df.dropna(subset=[\'oil\', \'date\'])
+            pro_df['date'] = pd.to_datetime(pro_df[date_col], errors='coerce')
+            pro_df['oil'] = pd.to_numeric(pro_df[oil_col], errors='coerce')
+            pro_df = pro_df.dropna(subset=['oil', 'date'])
             
             if pro_df.empty: raise ValueError("Production data is empty after cleaning")
         except Exception as e:
             st.warning(f"Using fallback production data due to: {e}")
             pro_df = pd.DataFrame({
-                \'date\': pd.date_range(start=\'2024-01-01\', periods=100, freq=\'D\'),
-                \'oil\': np.random.uniform(100, 500, 100)
+                'date': pd.date_range(start='2024-01-01', periods=100, freq='D'),
+                'oil': np.random.uniform(100, 500, 100)
             })
 
         return visc_interp, kro_interp, krw_interp, pc_interp, pro_df
@@ -246,7 +246,7 @@ def load_data():
         kro_interp = lambda sw: (1-sw)**2
         krw_interp = lambda sw: sw**2
         pc_interp = lambda sw: 10 * (1-sw)
-        pro_df = pd.DataFrame({\'date\': pd.date_range(start=\'2024-01-01\', periods=100, freq=\'D\'), \'oil\': np.random.uniform(100, 500, 100)})
+        pro_df = pd.DataFrame({'date': pd.date_range(start='2024-01-01', periods=100, freq='D'), 'oil': np.random.uniform(100, 500, 100)})
         return visc_interp, kro_interp, krw_interp, pc_interp, pro_df
 
 visc_interp, kro_interp, krw_interp, pc_interp, pro_data = load_data()
@@ -275,15 +275,15 @@ def perform_sensitivity_analysis(base_params, param_variations):
     for param, variations in param_variations.items():
         param_results = []
         for var in variations:
-            # In a real scenario, you\'d modify base_params with \'var\'
+            # In a real scenario, you'd modify base_params with 'var'
             # and re-run a simplified simulation or financial calculation.
-            # For demonstration, we\'ll use a simple linear impact.
-            if param == \'nano_efficiency\':
-                impact = base_params[\'base_recovery\'] * (1 + (var - 0.5) * 0.2) # Dummy impact
-            elif param == \'discount_rate\':
-                impact = base_params[\'base_npv\'] * (1 - (var - 0.1) * 5) # Dummy impact
+            # For demonstration, we'll use a simple linear impact.
+            if param == 'nano_efficiency':
+                impact = base_params['base_recovery'] * (1 + (var - 0.5) * 0.2) # Dummy impact
+            elif param == 'discount_rate':
+                impact = base_params['base_npv'] * (1 - (var - 0.1) * 5) # Dummy impact
             else:
-                impact = base_params[\'base_recovery\'] * (1 + (var - 1) * 0.1) # Generic dummy
+                impact = base_params['base_recovery'] * (1 + (var - 1) * 0.1) # Generic dummy
             param_results.append(impact)
         results[param] = param_results
     return results
@@ -392,29 +392,6 @@ class NanoRobot:
         if self.energy <= 0:
             self.color = COLOR_NANO_CRITICAL
             self.state = "inactive"
-    return (total_return - initial_investment) / initial_investment if initial_investment != 0 else 0
-
-def perform_sensitivity_analysis(base_params, param_variations):
-    results = {}
-    # Placeholder for sensitivity analysis logic
-    # This function would simulate the impact of varying key parameters
-    # on a chosen output metric (e.g., total oil recovery, NPV).
-    # For now, it returns dummy data.
-    for param, variations in param_variations.items():
-        param_results = []
-        for var in variations:
-            # In a real scenario, you\\'d modify base_params with \\'var\\' 
-            # and re-run a simplified simulation or financial calculation.
-            # For demonstration, we\\'ll use a simple linear impact.
-            if param == \\'nano_efficiency\\
-                impact = base_params[\\'base_recovery\\\] * (1 + (var - 0.5) * 0.2) # Dummy impact
-            elif param == \\'discount_rate\\
-                impact = base_params[\\'base_npv\\\] * (1 - (var - 0.1) * 5) # Dummy impact
-            else:
-                impact = base_params[\\'base_recovery\\\] * (1 + (var - 1) * 0.1) # Generic dummy
-            param_results.append(impact)
-        results[param] = param_results
-    return results
 
 
 
@@ -495,7 +472,7 @@ if "res" not in st.session_state:
     st.session_state.nano_injection_rate = 5 # nano per step
     st.session_state.injection_well_pos = (st.session_state.res.grid_size // 2, 0)
     st.session_state.production_well_pos = (st.session_state.res.grid_size // 2, st.session_state.res.grid_size - 1)
-    st.session_state.traditional_    st.session_state.traditional_production_rate = pro_data["oil"].mean() # Base from Pro.xlsx
+    st.session_state.traditional_production_rate = pro_data["oil"].mean() # Base from Pro.xlsx
     st.session_state.nano_enhanced_production_rate = st.session_state.traditional_production_rate
     st.session_state.total_oil_produced_nano = 0
     st.session_state.total_oil_produced_traditional = 0
@@ -513,7 +490,7 @@ if "res" not in st.session_state:
     st.session_state.capex_traditional = 1000000
     st.session_state.opex_traditional_per_bbl = 5
     st.session_state.capex_nano = 1500000
-    st.session_state.opex_nano_per_bbl = 4date"].min()
+    st.session_state.opex_nano_per_bbl = 4
 
 # --- Logging Function ---
 def log_event(message, level="info"):
@@ -523,7 +500,7 @@ def log_event(message, level="info"):
     elif level == "warning": color = COLOR_WARNING
     elif level == "error": color = COLOR_ERROR
     elif level == "success": color = COLOR_PRIMARY
-    st.session_state.log_messages.append(f"<span style=\"color:{color};\">[{timestamp}] {message}</span>")
+    st.session_state.log_messages.append(f"<span style='color:{color};'>[{timestamp}] {message}</span>")
     if len(st.session_state.log_messages) > 50: # Keep log short
         st.session_state.log_messages.pop(0)
 
@@ -559,7 +536,7 @@ def calculate_economics(total_oil_nano, total_oil_produced_traditional, total_na
 def forecast_production(history_df, forecast_days=365):
     if history_df.empty or len(history_df) < 5:
         # Fallback for forecasting
-        dates = pd.date_range(start=st.session_state.current_date, periods=forecast_days, freq=\'D\')
+        dates = pd.date_range(start=st.session_state.current_date, periods=forecast_days, freq='D')
         forecast_nano = np.linspace(st.session_state.nano_enhanced_production_rate, st.session_state.nano_enhanced_production_rate * 0.8, forecast_days)
         forecast_traditional = np.linspace(st.session_state.traditional_production_rate, st.session_state.traditional_production_rate * 0.7, forecast_days)
         return dates, forecast_nano, forecast_traditional
@@ -574,7 +551,7 @@ def forecast_production(history_df, forecast_days=365):
     decline_rate_nano = 0.001 # Example daily decline
     decline_rate_traditional = 0.002 # Example daily decline
 
-    forecast_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=forecast_days, freq=\'D\')
+    forecast_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=forecast_days, freq='D')
     forecast_nano = last_nano_prod * np.exp(-decline_rate_nano * np.arange(1, forecast_days + 1))
     forecast_traditional = last_trad_prod * np.exp(-decline_rate_traditional * np.arange(1, forecast_days + 1))
 
@@ -624,14 +601,14 @@ with st.sidebar:
         st.session_state.production_history = pd.DataFrame(columns=["Date", "Traditional_Oil", "Nano_Enhanced_Oil"])
         st.session_state.log_messages = []
         st.session_state.current_pressure = 2500
-    st.session_state.current_salinity = 1.0
-    st.session_state.nano_injection_rate = 5
-    st.session_state.oil_price_per_bbl = 70
-    st.session_state.nano_cost_per_unit = 0.1
-    st.session_state.capex_traditional = 1000000
-    st.session_state.opex_traditional_per_bbl = 5
-    st.session_state.capex_nano = 1500000
-    st.session_state.opex_nano_per_bbl = 4
+        st.session_state.current_salinity = 1.0
+        st.session_state.nano_injection_rate = 5
+        st.session_state.oil_price_per_bbl = 70
+        st.session_state.nano_cost_per_unit = 0.1
+        st.session_state.capex_traditional = 1000000
+        st.session_state.opex_traditional_per_bbl = 5
+        st.session_state.capex_nano = 1500000
+        st.session_state.opex_nano_per_bbl = 4
         st.session_state.traditional_production_rate = pro_data["oil"].mean()
         st.session_state.nano_enhanced_production_rate = st.session_state.traditional_production_rate
         st.session_state.total_nano_injected = 0
@@ -654,7 +631,7 @@ with st.sidebar:
             st.session_state.production_well_pos = (st.session_state.production_well_pos[0], max(0, st.session_state.production_well_pos[1]-1))
             log_event(f"Production well moved to {st.session_state.production_well_pos}", "info")
     with col_mid:
-        st.markdown("<h5 style=\'text-align:center; color:var(--secondary-color);\'>MOVE WELL</h5>", unsafe_allow_html=True)
+        st.markdown("<h5 style='text-align:center; color:var(--secondary-color);'>MOVE WELL</h5>", unsafe_allow_html=True)
     with col_right:
         if st.button("▶", key="right_arrow", use_container_width=True):
             st.session_state.production_well_pos = (st.session_state.production_well_pos[0], min(st.session_state.res.grid_size-1, st.session_state.production_well_pos[1]+1))
@@ -1019,19 +996,19 @@ with tabs[5]: # Operational Protocols
             fig_prod.add_trace(go.Scatter(
                 x=st.session_state.production_history["Date"],
                 y=st.session_state.production_history["Traditional_Oil"],
-                mode=\'lines\', name=\'Traditional Production\', line=dict(color=COLOR_SECONDARY, width=2)
+                mode='lines', name='Traditional Production', line=dict(color=COLOR_SECONDARY, width=2)
             ))
             fig_prod.add_trace(go.Scatter(
                 x=st.session_state.production_history["Date"],
                 y=st.session_state.production_history["Nano_Enhanced_Oil"],
-                mode=\'lines\', name=\'Nano-Enhanced Production\', line=dict(color=COLOR_PRIMARY, width=3)
+                mode='lines', name='Nano-Enhanced Production', line=dict(color=COLOR_PRIMARY, width=3)
             ))
             fig_prod.update_layout(
-                title={\'text\':"Total Production (bbl/day)", \'x\':0.5, \'xanchor\':\'center\'}, 
-                xaxis_title=\'Date\', yaxis_title=\'Oil Production (bbl/day)\',
+                title={'text':"Total Production (bbl/day)", 'x':0.5, 'xanchor':'center'}, 
+                xaxis_title='Date', yaxis_title='Oil Production (bbl/day)',
                 plot_bgcolor=COLOR_BG_MEDIUM, paper_bgcolor=COLOR_BG_DARK,
-                font=dict(color=COLOR_TEXT_LIGHT, family=\'Roboto Mono\'),
-                hovermode=\'x unified\'
+                font=dict(color=COLOR_TEXT_LIGHT, family='Roboto Mono'),
+                hovermode='x unified'
             )
             st.plotly_chart(fig_prod, use_container_width=True)
         else:
@@ -1041,7 +1018,7 @@ with tabs[5]: # Operational Protocols
     st.subheader("\nEvent Console")
     log_placeholder = st.empty()
     with log_placeholder.container():
-        st.markdown(f"<div class=\"log-console\">{'<br>'.join(st.session_state.log_messages[::-1])}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='log-console'>{'<br>'.join(st.session_state.log_messages[::-1])}</div>", unsafe_allow_html=True)
 
 with tabs[1]: # Subsurface Digital Twin
     st.header("\nSubsurface Digital Twin: Nano-Swarm Dynamics")
@@ -1061,18 +1038,18 @@ with tabs[1]: # Subsurface Digital Twin
         fig_3d.add_trace(go.Surface(
             x=x_coords, y=y_coords, z=np.zeros_like(x_coords), # Render on a flat plane at z=0
             surfacecolor=oil_saturation_heatmap,
-            colorscale=\'Hot\', # Hot colors for oil saturation
+            colorscale='Hot', # Hot colors for oil saturation
             cmin=0.0, cmax=1.0,
             opacity=0.6, showscale=True,
-            colorbar=dict(title=\'Oil Saturation\', titleside=\'right\'),
-            name=\'Oil Saturation\'
+            colorbar=dict(title='Oil Saturation', titleside='right'),
+            name='Oil Saturation'
         ))
 
         # Permeability heatmap
         fig_3d.add_trace(go.Surface(
             x=x_coords, y=y_coords, z=st.session_state.res.perm_grid,
-            colorscale=\'Viridis\', opacity=0.7, showscale=False,
-            name=\'Permeability\'
+            colorscale='Viridis', opacity=0.7, showscale=False,
+            name='Permeability'
         ))
 
         # Nano-robots
@@ -1109,28 +1086,28 @@ with tabs[1]: # Subsurface Digital Twin
         prod_x, prod_y = st.session_state.production_well_pos
         fig_3d.add_trace(go.Scatter3d(
             x=[prod_x], y=[prod_y], z=[st.session_state.res.perm_grid[prod_x, prod_y] + 10],
-            mode=\'markers\', 
-            marker=dict(size=10, color=\'red\', symbol=\'diamond\', opacity=1.0),
-            name=\'Production Well\'
+            mode='markers', 
+            marker=dict(size=10, color='red', symbol='diamond', opacity=1.0),
+            name='Production Well'
         ))
 
         # Injection Well
         inj_x, inj_y = st.session_state.injection_well_pos
         fig_3d.add_trace(go.Scatter3d(
             x=[inj_x], y=[inj_y], z=[st.session_state.res.perm_grid[inj_x, inj_y] + 10],
-            mode=\'markers\', 
-            marker=dict(size=10, color=\'blue\', symbol=\'circle\', opacity=1.0),
-            name=\'Injection Well\'
+            mode='markers', 
+            marker=dict(size=10, color='blue', symbol='circle', opacity=1.0),
+            name='Injection Well'
         ))
 
         fig_3d.update_layout(
             scene=dict(
-                xaxis_title=\'X-Coordinate\', yaxis_title=\'Y-Coordinate\', zaxis_title=\'Permeability\',
+                xaxis_title='X-Coordinate', yaxis_title='Y-Coordinate', zaxis_title='Permeability',
                 bgcolor=COLOR_BG_DARK,
-                aspectmode=\'cube\'
+                aspectmode='cube'
             ),
-            title={\'text\':"3D Reservoir & Nano-Swarm Visualization", \'x\':0.5, \'xanchor\':\'center\'}, 
-            paper_bgcolor=COLOR_BG_DARK, font=dict(color=COLOR_TEXT_LIGHT, family=\'Roboto Mono\'),
+            title={'text':"3D Reservoir & Nano-Swarm Visualization", 'x':0.5, 'xanchor':'center'}, 
+            paper_bgcolor=COLOR_BG_DARK, font=dict(color=COLOR_TEXT_LIGHT, family='Roboto Mono'),
             height=700
         )
         st.plotly_chart(fig_3d, use_container_width=True)
@@ -1169,19 +1146,19 @@ with tabs[2]: # AI Analytics & Forecasting
             fig_analytics_prod.add_trace(go.Scatter(
                 x=st.session_state.production_history["Date"],
                 y=st.session_state.production_history["Traditional_Oil"],
-                mode=\'lines\', name=\'Traditional Production\', line=dict(color=COLOR_SECONDARY, width=2)
+                mode='lines', name='Traditional Production', line=dict(color=COLOR_SECONDARY, width=2)
             ))
             fig_analytics_prod.add_trace(go.Scatter(
                 x=st.session_state.production_history["Date"],
                 y=st.session_state.production_history["Nano_Enhanced_Oil"],
-                mode=\'lines\', name=\'Nano-Enhanced Production\', line=dict(color=COLOR_PRIMARY, width=3)
+                mode='lines', name='Nano-Enhanced Production', line=dict(color=COLOR_PRIMARY, width=3)
             ))
             fig_analytics_prod.update_layout(
-                title={\'text\':"Historical Production (bbl/day)", \'x\':0.5, \'xanchor\':\'center\'}, 
-                xaxis_title=\'Date\', yaxis_title=\'Oil Production (bbl/day)\',
+                title={'text':"Historical Production (bbl/day)", 'x':0.5, 'xanchor':'center'}, 
+                xaxis_title='Date', yaxis_title='Oil Production (bbl/day)',
                 plot_bgcolor=COLOR_BG_MEDIUM, paper_bgcolor=COLOR_BG_DARK,
-                font=dict(color=COLOR_TEXT_LIGHT, family=\'Roboto Mono\'),
-                hovermode=\'x unified\'
+                font=dict(color=COLOR_TEXT_LIGHT, family='Roboto Mono'),
+                hovermode='x unified'
             )
             st.plotly_chart(fig_analytics_prod, use_container_width=True)
         else:
@@ -1195,29 +1172,29 @@ with tabs[2]: # AI Analytics & Forecasting
         fig_forecast.add_trace(go.Scatter(
             x=st.session_state.production_history["Date"],
             y=st.session_state.production_history["Traditional_Oil"],
-            mode=\'lines\', name=\'Historical Traditional\', line=dict(color=COLOR_SECONDARY, width=2)
+            mode='lines', name='Historical Traditional', line=dict(color=COLOR_SECONDARY, width=2)
         ))
         fig_forecast.add_trace(go.Scatter(
             x=forecast_dates,
             y=forecast_traditional,
-            mode=\'lines\', name=\'Forecast Traditional\', line=dict(color=COLOR_SECONDARY, width=1, dash=\'dash\')
+            mode='lines', name='Forecast Traditional', line=dict(color=COLOR_SECONDARY, width=1, dash='dash')
         ))
         fig_forecast.add_trace(go.Scatter(
             x=st.session_state.production_history["Date"],
             y=st.session_state.production_history["Nano_Enhanced_Oil"],
-            mode=\'lines\', name=\'Historical Nano-Enhanced\', line=dict(color=COLOR_PRIMARY, width=3)
+            mode='lines', name='Historical Nano-Enhanced', line=dict(color=COLOR_PRIMARY, width=3)
         ))
         fig_forecast.add_trace(go.Scatter(
             x=forecast_dates,
             y=forecast_nano,
-            mode=\'lines\', name=\'Forecast Nano-Enhanced\', line=dict(color=COLOR_PRIMARY, width=1, dash=\'dash\')
+            mode='lines', name='Forecast Nano-Enhanced', line=dict(color=COLOR_PRIMARY, width=1, dash='dash')
         ))
         fig_forecast.update_layout(
-            title={\'text\':"Production Forecast (bbl/day)", \'x\':0.5, \'xanchor\':\'center\'}, 
-            xaxis_title=\'Date\', yaxis_title=\'Oil Production (bbl/day)\',
+            title={'text':"Production Forecast (bbl/day)", 'x':0.5, 'xanchor':'center'}, 
+            xaxis_title='Date', yaxis_title='Oil Production (bbl/day)',
             plot_bgcolor=COLOR_BG_MEDIUM, paper_bgcolor=COLOR_BG_DARK,
-            font=dict(color=COLOR_TEXT_LIGHT, family=\'Roboto Mono\'),
-            hovermode=\'x unified\'
+            font=dict(color=COLOR_TEXT_LIGHT, family='Roboto Mono'),
+            hovermode='x unified'
         )
         st.plotly_chart(fig_forecast, use_container_width=True)
 
@@ -1276,8 +1253,8 @@ with tabs[4]: # Geospatial Asset Surveillance
     # Permeability background
     fig_map.add_trace(go.Heatmap(
         z=st.session_state.res.perm_grid,
-        colorscale=\'Viridis\', showscale=True,
-        name=\'Permeability\'
+        colorscale='Viridis', showscale=True,
+        name='Permeability'
     ))
 
     # Nano-robots
@@ -1288,34 +1265,34 @@ with tabs[4]: # Geospatial Asset Surveillance
     if nano_x:
         fig_map.add_trace(go.Scatter(
             x=nano_y, y=nano_x, # Swapped for correct orientation
-            mode=\'markers\', 
-            marker=dict(size=10, color=nano_colors, opacity=0.8, symbol=\'circle\'),
-            name=\'Nano-Robots\'
+            mode='markers', 
+            marker=dict(size=10, color=nano_colors, opacity=0.8, symbol='circle'),
+            name='Nano-Robots'
         ))
     
     # Production Well
     prod_x, prod_y = st.session_state.production_well_pos
     fig_map.add_trace(go.Scatter(
         x=[prod_y], y=[prod_x], # Swapped
-        mode=\'markers\', 
-        marker=dict(size=15, color=\'red\', symbol=\'diamond\', line=dict(width=2, color=\'white\')),
-        name=\'Production Well\'
+        mode='markers', 
+        marker=dict(size=15, color='red', symbol='diamond', line=dict(width=2, color='white')),
+        name='Production Well'
     ))
 
     # Injection Well
     inj_x, inj_y = st.session_state.injection_well_pos
     fig_map.add_trace(go.Scatter(
         x=[inj_y], y=[inj_x], # Swapped
-        mode=\'markers\', 
-        marker=dict(size=15, color=\'blue\', symbol=\'circle\', line=dict(width=2, color=\'white\')),
-        name=\'Injection Well\'
+        mode='markers', 
+        marker=dict(size=15, color='blue', symbol='circle', line=dict(width=2, color='white')),
+        name='Injection Well'
     ))
 
     fig_map.update_layout(
-        title={\'text\':"2D Field Map & Nano-Swarm Distribution", \'x\':0.5, \'xanchor\':\'center\'}, 
-        xaxis_title=\'Y-Coordinate\', yaxis_title=\'X-Coordinate\',
+        title={'text':"2D Field Map & Nano-Swarm Distribution", 'x':0.5, 'xanchor':'center'}, 
+        xaxis_title='Y-Coordinate', yaxis_title='X-Coordinate',
         plot_bgcolor=COLOR_BG_DARK, paper_bgcolor=COLOR_BG_DARK,
-        font=dict(color=COLOR_TEXT_LIGHT, family=\'Roboto Mono\'),
+        font=dict(color=COLOR_TEXT_LIGHT, family='Roboto Mono'),
         height=700
     )
     st.plotly_chart(fig_map, use_container_width=True)
