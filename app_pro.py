@@ -1042,7 +1042,7 @@ with tabs[1]: # Subsurface Digital Twin
             colorscale='Hot', # Hot colors for oil saturation
             cmin=0.0, cmax=1.0,
             opacity=0.6, showscale=True,
-            colorbar=dict(title='Oil Saturation', titleside='right'),
+            colorbar=dict(title=dict(text='Oil Saturation', side='right')),
             name='Oil Saturation'
         ))
 
