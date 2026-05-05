@@ -385,8 +385,9 @@ class NanoRobot:
         self.y = y
         self.energy = energy
         self.color = COLOR_NANO_HEALTHY
-        self.trail = []
+        self.path = []
         self.state = "exploring"
+        self.id = random.randint(1000, 9999)
 
     def move(self, reservoir, target_x, target_y, current_pressure, salinity_modifier):
         if self.energy <= 0:
@@ -395,9 +396,9 @@ class NanoRobot:
 
 
 
-        self.trail.append((self.x, self.y))
-        if len(self.trail) > 10: # Keep trail short
-            self.trail.pop(0)
+        self.path.append((self.x, self.y))
+        if len(self.path) > 10: # Keep trail short
+            self.path.pop(0)
 
         # Energy consumption based on environment and movement
         energy_cost = 1 # Base cost
@@ -421,6 +422,7 @@ class NanoRobot:
         else:
             self.color = COLOR_NANO_HEALTHY
             self.state = "exploring"
+        self.id = random.randint(1000, 9999)
 
         # Movement logic: move towards higher oil saturation (lower water saturation) and higher permeability
         best_move = (self.x, self.y)
